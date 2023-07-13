@@ -10,7 +10,7 @@ _Stephen Wade_
 `literanger` is an adaption of the [`ranger`][ranger_cran] R package for
 training and predicting from random forest models within multiple imputation
 algorithms. `ranger` is a fast implementation of random forests
-([Breiman, 2001][brieman2001_doi]) or recursive partitioning, particularly
+([Breiman, 2001][breiman2001_doi]) or recursive partitioning, particularly
 suited for high dimensional data ([Wright et al, 2017][wright2017_doi]).
 `literanger` enables random forests to be embedded in the fully conditional
 specification framework for multiple imputation known as 'Multiple Imputation
@@ -36,13 +36,13 @@ object and the separation of the (training) data from the forest, see `ranger`
 [issue #304](https://github.com/imbs-hl/ranger/issues/304).
 
 A multiple imputation algorithm using this package is under development: called
-[`smirf`][smirf_github].
+[`mimputest`][mimputest_github].
 
 [mice_cran]: https://cran.r-project.org/package=mice
 [miceranger_cran]: https://cran.r-project.org/package=miceRanger
 [missranger_cran]: https://cran.r-project.org/package=missRanger
 [ranger_cran]: https://cran.r-project.org/package=ranger
-[smirf_github]: https://github.com/stephematician/smirf
+[mimputest_github]: https://github.com/stephematician/mimputest
 
 
 ## Example
@@ -108,7 +108,7 @@ Statistics & Data Analysis_, 72, pp. 92-104.
 
 Van Buuren, S. 2007. Multiple imputation of discrete and continuous  data by
 fully conditional specification. _Statistical Methods in Medical Research_,
-16(3), pp. 219-242. 
+16(3), pp. 219-242.
 [doi:10.1177/0962280206074463](https://doi.org/10.1177/0962280206074463).
 
 Wright, M. N. and Ziegler, A., 2017. ranger: A fast implementation of random
@@ -116,7 +116,7 @@ forests for high dimensional data in C++ and R. _Journal of Statistical
 Software_, 77(i01), pp. 1-17.
 [doi:10.18637/jss.v077.i01](https://doi.org/10.18637/jss.v077.i01).
 
-[brieman2001_doi]: https://doi.org/10.1023/A:1010933404324
+[breiman2001_doi]: https://doi.org/10.1023/A:1010933404324
 [doove2014_doi]: https://doi.org/10.1016/j.csda.2013.10.025
 [vanbuuren2007_doi]: https://doi.org/10.1177/0962280206074463
 [wright2017_doi]: https://doi.org/10.18637/jss.v077.i01

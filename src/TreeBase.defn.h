@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -23,6 +23,10 @@
 #include <cmath>
 #include <iterator>
 #include <stdexcept>
+
+/* cereal types */
+#include "cereal/types/utility.hpp"
+#include "cereal/types/vector.hpp"
 
 /* general literanger headers */
 #include "utility_draw.h"
@@ -47,6 +51,43 @@ inline TreeBase::TreeBase(const TreeParameters & parameters,
     n_random_split(parameters.n_random_split),
     save_memory(save_memory)
 { }
+
+
+inline TreeBase::TreeBase(
+    const TreeParameters & parameters,
+    const bool save_memory,
+    key_vector && split_keys,
+    dbl_vector && split_values,
+    std::pair<key_vector,key_vector> && child_node_keys
+) :
+    n_predictor(parameters.n_predictor), is_ordered(parameters.is_ordered),
+    replace(parameters.replace), sample_fraction(parameters.sample_fraction),
+    n_try(parameters.n_try),
+    draw_always_predictor_keys(parameters.draw_always_predictor_keys),
+    draw_predictor_weights(parameters.draw_predictor_weights),
+    split_rule(parameters.split_rule),
+    min_metric_decrease(parameters.min_metric_decrease),
+    max_depth(parameters.max_depth),
+    min_split_n_sample(parameters.min_split_n_sample),
+    min_leaf_n_sample(parameters.min_leaf_n_sample),
+    n_random_split(parameters.n_random_split),
+    save_memory(save_memory),
+    split_keys(std::move(split_keys)), split_values(std::move(split_values)),
+    child_node_keys(std::move(child_node_keys)) {
+
+}
+
+
+inline TreeBase::operator TreeParameters() {
+    return TreeParameters(
+        n_predictor,
+        std::shared_ptr<std::vector<bool>>(new std::vector<bool>(*is_ordered)),
+        replace, sample_fraction, n_try,
+        draw_always_predictor_keys, draw_predictor_weights, split_rule,
+        min_metric_decrease, max_depth,
+        min_split_n_sample, min_leaf_n_sample, n_random_split
+    );
+}
 
 
 inline void TreeBase::seed_gen(const size_t seed) { gen.seed(seed); }
@@ -142,6 +183,14 @@ inline size_t TreeBase::get_n_sample_node(const size_t node_key) const {
 }
 
 
+template <typename archive_type>
+void TreeBase::serialize(archive_type & archive) {
+    TreeParameters tree_parameters = *this;
+    archive(tree_parameters, save_memory,
+            split_keys, split_values, child_node_keys);
+}
+
+
 inline void TreeBase::push_back_empty_node() {
 
     split_keys.emplace_back(0);
@@ -178,7 +227,7 @@ inline void TreeBase::resample_unweighted(const size_t n_sample,
             const double fraction = (double)n_sample_inbag / (double)n_sample;
             oob_keys.reserve(n_sample * std::exp(-fraction + 0.15));
             for (size_t j = 0; j != n_sample; ++j) {
-                if (inbag_counts[j] == 0) oob_keys.push_back(j);
+                if (inbag_counts[j] == 0) oob_keys.emplace_back(j);
             }
         }
 

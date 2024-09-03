@@ -116,6 +116,6 @@ Statistical Software}, 77, 1-17. \doi{10.18637/jss.v077.i01}.
 \code{\link{train}}
 }
 \author{
-Stephen Wade \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
+stephematician \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
 ranger package)
 }

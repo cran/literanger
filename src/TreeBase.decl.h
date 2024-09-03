@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -50,6 +50,8 @@ struct TreeBase {
         /** Virtual destructor for pure-abstract class. */
         virtual ~TreeBase() = default;
 
+        operator TreeParameters();
+
         /** Seed the pseudo-random number generator engine.
          * @param[in] seed Value to seed TreeBase::gen with. */
         void seed_gen(const size_t seed);
@@ -78,6 +80,9 @@ struct TreeBase {
          * @returns The number of samples in the node. */
         size_t get_n_sample_node(const size_t node_key) const;
 
+        template <typename archive_type>
+        void serialize(archive_type & archive);
+
 
     protected:
 
@@ -88,6 +93,19 @@ struct TreeBase {
          * memory and omit building an index (which takes up memory but speeds
          * up training). */
         TreeBase(const TreeParameters & parameters, const bool save_memory);
+
+        /** @copydoc TreeBase::TreeBase(TreeParameters&,bool)
+         * @param[in] split_keys The predictor key for each node that identifies
+         * the variable to split by.
+         * @param[in] split_values The value for each node that determines
+         * whether a data point belongs in the left or right child.
+         * @param[in] child_node_keys A pair of containers for left and right
+         * child-node keys
+         */
+        TreeBase(const TreeParameters & parameters, const bool save_memory,
+                 key_vector && split_keys,
+                 dbl_vector && split_values,
+                 std::pair<key_vector,key_vector> && child_node_keys);
 
         /** @name Generic tree parameters.
          * Parameters that describe the sampling, drawing, and splitting for
@@ -156,6 +174,9 @@ struct TreeBase {
         /** Count of the number of observations for each candidate split
          * value. */
         count_vector node_n_by_candidate;
+
+        /** Storage for candidate value (index) when selecting split */
+        dbl_vector candidate_values;
 
 
     private:

@@ -288,6 +288,6 @@ rank statistics. \emph{Statistics in medicine}, 36(8), 1272-1284.
 \code{\link{predict.literanger}}
 }
 \author{
-Stephen Wade \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
+stephematician \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
 ranger package)
 }

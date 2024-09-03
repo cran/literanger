@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -103,7 +103,7 @@ inline void Data::new_predictor_index() const {
             unique_values.end()
         );
 
-        for (size_t row = 0; row < n_row; ++row)
+        for (size_t row = 0; row != n_row; ++row)
             predictor_index[column * n_row + row] = std::distance(
                 unique_values.begin(),
                 std::lower_bound(
@@ -174,14 +174,14 @@ inline size_t Data::get_max_n_unique_value() const {
 inline dbl_vector Data::get_response_values() const {
 
     const size_t n_sample = get_n_row();
-    dbl_vector result { };
+    dbl_vector result;
 
     for (size_t sample_key = 0; sample_key != n_sample; ++sample_key) {
         const double value = get_y(sample_key, 0);
         const dbl_vector::const_iterator value_it = std::find(
             result.cbegin(), result.cend(), value
         );
-        if (value_it == result.cend()) result.push_back(value);
+        if (value_it == result.cend()) result.emplace_back(value);
     }
 
     return result;

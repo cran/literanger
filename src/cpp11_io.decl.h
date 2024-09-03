@@ -25,34 +25,20 @@
  *   Australia
  *-------------------------------------------------------------------------------
  */
-#ifndef LITERANGER_CPP11_PREDICT_DECL_H
-#define LITERANGER_CPP11_PREDICT_DECL_H
+#ifndef LITERANGER_CPP11_IO_DECL_H
+#define LITERANGER_CPP11_IO_DECL_H
 
 /* standard library headers */
 #include <cstddef>
+#include <string>
 
 /* cpp11 and R headers */
 #include "cpp11.hpp"
 
 
-/** Fit a random forest
+/** Serialize a random forest
  *
- * @param[in] x The predictor data as a numeric matrix; each column is a
- * predictor and each row is an observation (or case).
- * @param[in] sparse_x Optional (set to NULL in R to disable); the predictor
- * data represented using a sparse matrix structure, same layout as in \p x, but
- * the underlying data structure more compactly represents matrices with lots of
- * zeros.
- * @param[in] prediction_type The type of prediction, either "bagged", "inbag"
- * or "nodes" (currently not supported); "bagged" predictions take the majority
- * vote or mean from all trees for each row in @p x ; "inbag" draws one in-bag
- * value from a random tree for each row; "nodes" returns the keys (ids) for the
- * terminal node from every tree for each row.
- * @param[in] seed Seed used for (seeding) pseudo-random number generators for
- * each tree.
- * @param[in] n_thread The number of threads to use for training, if zero then
- * the number of threads will be the value returned by
- * `std::thread::hardware_concurrency`.
+ * @param[in] object A random forest object returned by `literanger::train`.
  * @param[in] verbose Indicator for additional printed output while growing and
  * predicting.
  *
@@ -61,12 +47,9 @@
  *     type and tree type. For "bagged" and "inbag" @p prediction_type, a
  *     numeric value for each row.
  */
-cpp11::list cpp11_predict(
-    cpp11::list object,
-    cpp11::doubles_matrix<> x, cpp11::sexp sparse_x,
-    std::string prediction_type, const size_t seed,
-    const size_t n_thread, const bool verbose
-);
+cpp11::raws cpp11_serialize(cpp11::list object, const bool verbose);
+
+cpp11::list cpp11_deserialize(cpp11::raws object, const bool verbose);
 
 
 #endif /* LITERANGER_CPP11_PREDICT_DECL_H */

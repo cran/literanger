@@ -2,7 +2,7 @@
 # This file is part of 'literanger'. literanger was adapted from the 'ranger'
 # package for R statistical software. ranger was authored by Marvin N Wright
 # with the GNU General Public License version 3. The adaptation was performed by
-# Stephen Wade in 2023. literanger carries the same license, terms, and
+# stephematician in 2023. literanger carries the same license, terms, and
 # permissions as ranger.
 #
 # literanger is free software: you can redistribute it and/or modify
@@ -16,13 +16,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with literanger. If not, see <http://www.gnu.org/licenses/>.
+# along with literanger. If not, see <https://www.gnu.org/licenses/>.
 #
 # Written by:
 #
-#   Stephen Wade
-#   Cancer Council New South Wales
-#   Woolloomooloo NSW 2011
+#   stephematician
+#   stephematician@gmail.com
 #   Australia
 # ------------------------------------------------------------------------------
 
@@ -56,7 +55,7 @@
 #' al, 2017b).
 #'
 #' See <https://github.com/imbs-hl/ranger> for the development version of ranger
-#' or <https://github.com/stephematician/literanger> for development version of
+#' or <https://gitlab.com/stephematician/literanger> for development version of
 #' this package.
 #'
 #' For alternative approaches to multiple imputation that employ random forests,
@@ -70,7 +69,7 @@
 #' <https://www.r-project.org/Licenses/MIT>. The wrappers in this package around
 #' the core are licensed under the same terms of the corresponding components in
 #' the 'ranger' R package, namely the GPL3 license
-#' <https://www.r-project.org/Licenses/GPL-3>, <http://www.gnu.org/licenses/>.
+#' <https://www.r-project.org/Licenses/GPL-3>, <https://www.gnu.org/licenses/>.
 #'
 #'
 #' # License
@@ -78,7 +77,7 @@
 #' 'literanger' was adapted from the 'ranger' package for R statistical
 #' software. ranger was authored by Marvin N. Wright with the GNU General Public
 #' License version 3 for the R package (interface), while the C++ core of ranger
-#' has the MIT license. The adaptation was performed by Stephen Wade in 2023.
+#' has the MIT license. The adaptation was performed by stephematician in 2023.
 #' literanger carries the same license, terms, and permissions as ranger,
 #' including the GNU General Public License 3 for the R package interface, and
 #' the MIT license for the C++ core.
@@ -123,7 +122,7 @@
 #' details.
 #'
 #' You should have received a copy of the GNU General Public License along
-#' with Ranger. If not, see <http://www.gnu.org/licenses/>.
+#' with Ranger. If not, see <https://www.gnu.org/licenses/>.
 #'
 #' Written by:
 #' Marvin N. Wright
@@ -131,7 +130,7 @@
 #' Universität zu Lübeck
 #' Ratzeburger Allee 160
 #' 23562 Lübeck
-#' http://www.imbs-luebeck.d
+#' https://www.imbs.uni-luebeck.de/institut
 #' ```
 #'
 #' @references
@@ -165,7 +164,7 @@
 #'     rank statistics. _Statistics in medicine_, 36(8), 1272-1284.
 #'     \doi{10.1002/sim.7212}.
 #'
-#' @author Stephen Wade <stephematician@gmail.com>, Marvin N Wright (original
+#' @author stephematician <stephematician@gmail.com>, Marvin N Wright (original
 #' 'ranger' package)
 #'
 #' @useDynLib literanger, .registration = TRUE
@@ -176,7 +175,7 @@
 "_PACKAGE"
 
 # A recommended practise; unload this package's dynamic libraries,
-# see http://r-pkgs.had.co.nz/src.html
+# see https://r-pkgs.had.co.nz/src.html
 .onUnload <- function (lib_path)
     library.dynam.unload("literanger", lib_path)
 

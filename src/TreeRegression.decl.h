@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -35,7 +35,7 @@ namespace literanger {
 
 struct TreeRegression: Tree<TreeRegression> {
 
-    friend class Tree<TreeRegression>;
+    friend struct Tree<TreeRegression>;
 
     public:
 
@@ -45,6 +45,23 @@ struct TreeRegression: Tree<TreeRegression> {
         TreeRegression(const double min_prop,
                        const TreeParameters & parameters,
                        const bool save_memory);
+
+        /** @copydoc TreeRegression::TreeRegression(double,TreeParameters&,bool)
+         * @param[in] split_keys The predictor key for each node that identifies
+         * the variable to split by.
+         * @param[in] split_values The value for each node that determines
+         * whether a data point belongs in the left or right child.
+         * @param[in] child_node_keys A pair of containers for left and right
+         * child-node keys
+         */
+        TreeRegression(
+            const double min_prop,
+            std::unordered_map<size_t,dbl_vector> && leaf_values,
+            std::unordered_map<size_t,double> && leaf_mean,
+            const TreeParameters & parameters, const bool save_memory,
+            key_vector && split_keys, dbl_vector && split_values,
+            std::pair<key_vector,key_vector> && child_node_keys
+        );
 
         const std::unordered_map<size_t,dbl_vector> & get_leaf_values() const;
 
@@ -75,6 +92,14 @@ struct TreeRegression: Tree<TreeRegression> {
         void predict_from_inbag(const size_t node_key,
                                 result_type & result);
 
+        template <typename archive_type>
+        void serialize(archive_type & archive);
+
+        template <typename archive_type>
+        static void load_and_construct(
+            archive_type & archive,
+            cereal::construct<TreeRegression> & construct
+        );
 
 
     protected:
@@ -139,7 +164,7 @@ struct TreeRegression: Tree<TreeRegression> {
         void prepare_candidate_loop_via_value(
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
-            const key_vector & sample_keys, const dbl_vector & candidate_values
+            const key_vector & sample_keys
         );
 
         /** @copydoc Tree::prepare_loop_invariants_via_index() */

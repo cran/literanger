@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with

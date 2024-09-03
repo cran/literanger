@@ -35,7 +35,7 @@ Gini impurity, beta log-likelihood (Weinhold et al, 2019), Hellinger distance
 al, 2017b).
 
 See \url{https://github.com/imbs-hl/ranger} for the development version of ranger
-or \url{https://github.com/stephematician/literanger} for development version of
+or \url{https://gitlab.com/stephematician/literanger} for development version of
 this package.
 
 For alternative approaches to multiple imputation that employ random forests,
@@ -49,13 +49,13 @@ original C++ core in the 'ranger' package, namely the MIT license
 \url{https://www.r-project.org/Licenses/MIT}. The wrappers in this package around
 the core are licensed under the same terms of the corresponding components in
 the 'ranger' R package, namely the GPL3 license
-\url{https://www.r-project.org/Licenses/GPL-3}, \url{http://www.gnu.org/licenses/}.
+\url{https://www.r-project.org/Licenses/GPL-3}, \url{https://www.gnu.org/licenses/}.
 }
 \section{License}{
 'literanger' was adapted from the 'ranger' package for R statistical
 software. ranger was authored by Marvin N. Wright with the GNU General Public
 License version 3 for the R package (interface), while the C++ core of ranger
-has the MIT license. The adaptation was performed by Stephen Wade in 2023.
+has the MIT license. The adaptation was performed by stephematician in 2023.
 literanger carries the same license, terms, and permissions as ranger,
 including the GNU General Public License 3 for the R package interface, and
 the MIT license for the C++ core.
@@ -98,7 +98,7 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
 details.
 
 You should have received a copy of the GNU General Public License along
-with Ranger. If not, see <http://www.gnu.org/licenses/>.
+with Ranger. If not, see <https://www.gnu.org/licenses/>.
 
 Written by:
 Marvin N. Wright
@@ -106,7 +106,7 @@ Institut für Medizinische Biometrie und Statistik
 Universität zu Lübeck
 Ratzeburger Allee 160
 23562 Lübeck
-http://www.imbs-luebeck.d
+https://www.imbs.uni-luebeck.de/institut
 }\if{html}{\out{</div>}}
 }
 
@@ -145,13 +145,13 @@ rank statistics. \emph{Statistics in medicine}, 36(8), 1272-1284.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/stephematician/literanger}
-  \item Report bugs at \url{https://github.com/stephematician/literanger/issues}
+  \item \url{https://gitlab.com/stephematician/literanger}
+  \item Report bugs at \url{https://gitlab.com/stephematician/literanger/-/issues}
 }
 
 }
 \author{
-Stephen Wade \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
+stephematician \href{mailto:stephematician@gmail.com}{stephematician@gmail.com}, Marvin N Wright (original
 'ranger' package)
 }
 \keyword{internal}

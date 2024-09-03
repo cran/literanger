@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -22,6 +22,9 @@
 #include <memory>
 #include <vector>
 
+/* cereal types */
+#include "cereal/access.hpp"
+
 /* general literanger headers */
 #include "enum_types.h"
 #include "globals.h"
@@ -34,7 +37,7 @@ namespace literanger {
 /** A classification forest. */
 struct ForestClassification : public Forest<ForestClassification> {
 
-    friend class Forest<ForestClassification>;
+    friend struct Forest<ForestClassification>;
 
     public:
 
@@ -51,6 +54,24 @@ struct ForestClassification : public Forest<ForestClassification> {
                              const dbl_vector_ptr response_weights,
                              const std::vector<TreeParameters> tree_parameters,
                              const bool save_memory);
+
+        /** @copydoc ForestClassification::ForestClassification(dbl_vector_ptr,dbl_vector_ptr,std::vector<TreeParameters>,bool)
+         * @param[in] trees ... TODO:
+         */
+        ForestClassification(const dbl_vector_ptr response_values,
+                             const dbl_vector_ptr response_weights,
+                             const std::vector<TreeParameters> tree_parameters,
+                             const bool save_memory,
+                             std::vector<std::unique_ptr<TreeBase>> && trees);
+
+        template <typename archive_type>
+        void serialize(archive_type & archive);
+
+        template <typename archive_type>
+        static void load_and_construct(
+            archive_type & archive,
+            cereal::construct<ForestClassification> & construct
+        );
 
 
     protected:

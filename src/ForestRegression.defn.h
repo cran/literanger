@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -25,6 +25,13 @@
 #include <numeric>
 #include <random>
 #include <stdexcept>
+#include <utility>
+
+/* cereal types */
+#include "cereal/types/memory.hpp"
+#include "cereal/types/polymorphic.hpp"
+#include "cereal/types/string.hpp"
+#include "cereal/types/vector.hpp"
 
 /* requred literanger class definitions */
 #include "Data.defn.h"
@@ -35,11 +42,47 @@
 namespace literanger {
 
 inline ForestRegression::ForestRegression(
-     const double min_prop,
+    const double min_prop,
     const std::vector<TreeParameters> tree_parameters, const bool save_memory
 ) :
     Forest(TREE_REGRESSION, tree_parameters, save_memory), min_prop(min_prop)
 { }
+
+inline ForestRegression::ForestRegression(
+    const double min_prop,
+    const std::vector<TreeParameters> tree_parameters, const bool save_memory,
+    std::vector<std::unique_ptr<TreeBase>> && trees
+) :
+    Forest(TREE_REGRESSION, tree_parameters, save_memory, std::move(trees)),
+    min_prop(min_prop)
+{ }
+
+
+template <typename archive_type>
+void ForestRegression::serialize(archive_type & archive) {
+    archive(cereal::base_class<ForestBase>(this), min_prop);
+}
+
+
+template <typename archive_type>
+void ForestRegression::load_and_construct(
+    archive_type & archive,
+    cereal::construct<ForestRegression> & construct
+) {
+    TreeType tree_type;
+    std::vector<TreeParameters> tree_parameters;
+    bool save_memory;
+    std::vector<std::unique_ptr<TreeBase>> trees;
+    double min_prop;
+
+    archive(tree_type, tree_parameters, save_memory, trees);
+    archive(min_prop);
+
+    if (tree_type != TREE_REGRESSION)
+        throw std::runtime_error("foo");
+
+    construct(min_prop, tree_parameters, save_memory, std::move(trees));
+}
 
 
 inline void ForestRegression::plant_tree(const std::shared_ptr<const Data> data,
@@ -353,6 +396,9 @@ inline void ForestRegression::aggregate_one_item<NODES>(
 
 
 } /* namespace literanger */
+
+
+CEREAL_REGISTER_TYPE(literanger::ForestRegression);
 
 
 #endif /* LITERANGER_FOREST_REGRESSION_DEFN_H */

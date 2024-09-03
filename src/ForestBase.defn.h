@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -31,6 +31,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+
+/* for serializing tree_parameters */
+#include "cereal/types/memory.hpp"
+#include "cereal/types/vector.hpp"
 
 
 namespace literanger {
@@ -59,6 +63,26 @@ inline ForestBase::ForestBase(
 }
 
 
+inline ForestBase::ForestBase(
+    const TreeType tree_type,
+    const std::vector<TreeParameters> tree_parameters,
+    const bool save_memory,
+    std::vector<std::unique_ptr<TreeBase>> && trees
+) :
+    tree_type(tree_type),
+    n_tree(tree_parameters.size()),
+    tree_parameters(tree_parameters),
+    save_memory(save_memory),
+    trees(std::move(trees))
+{
+  /* final checks */
+    if (this->n_tree == 0)
+        throw std::domain_error("'n_tree' must be positive.");
+    if (this->n_tree != this->trees.size())
+        throw std::runtime_error("'n_tree' does not match 'trees.size()'");
+}
+
+
 /* member definitions (non-interface) */
 
 inline void ForestBase::seed_gen(const size_t seed) {
@@ -74,6 +98,12 @@ inline void ForestBase::seed_gen(const size_t seed) {
 inline const std::vector<TreeParameters> &
 ForestBase::get_tree_parameters() const {
     return tree_parameters;
+}
+
+
+template <typename archive_type>
+void ForestBase::serialize(archive_type & archive) {
+    archive(tree_type, tree_parameters, save_memory, trees);
 }
 
 

@@ -1,48 +1,33 @@
 literanger: A fast implementation of random forests for multiple imputation
 ===========================================================================
 
-![R-CMD-Check](https://github.com/stephematician/literanger/actions/workflows/check-standard.yaml/badge.svg)
+[![R CMD check status](https://gitlab.com/stephematician/literanger/badges/main/pipeline.svg?job=check_r_package-job-bash&key_text=R+CMD+Check&key_width=90)](https://gitlab.com/stephematician/literanger/-/commits/main)
+[![coverage report](https://gitlab.com/stephematician/literanger/badges/main/coverage.svg)](https://gitlab.com/stephematician/literanger/-/commits/main)
+[![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
 
-_Stephen Wade_
+_stephematician_
 
-🚧 Under construction 🚧
-
-`literanger` is an adaption of the [`ranger`][ranger_cran] R package for
+`literanger` is an adaptation of the [`ranger`][ranger_cran] R package for
 training and predicting from random forest models within multiple imputation
 algorithms. `ranger` is a fast implementation of random forests
 ([Breiman, 2001][breiman2001_doi]) or recursive partitioning, particularly
 suited for high dimensional data ([Wright et al, 2017][wright2017_doi]).
-`literanger` enables random forests to be embedded in the fully conditional
-specification framework for multiple imputation known as 'Multiple Imputation
-via Chained Equations' ([Van Buuren, 2007][vanbuuren2007_doi]).
+`literanger` redesigned the `ranger` interface to achieve faster prediction, and
+is now available as a backend for random forests within 'Multiple Imputation
+via Chained Equations' ([Van Buuren, 2007][vanbuuren2007_doi]) in the
+R package [`mice`][mice_cran].
 
-Implementations of multiple imputation with random forests include:
+Efficient serialization, i.e. reading and writing, of a trained random forest is
+provided via the [cereal][cereal_url] library.
 
-1.  [`mice`][mice_cran] which uses random forests to predict in a similar
-    fashion to [Doove et al, (2014)][doove2014_doi], i.e. for each observation,
-    a draw is taken from the sample of all values that belong to the terminal
-    node of a randomly drawn tree.
-2.  [`miceRanger`][miceranger_cran] and [`missRanger`][missranger_cran] which
-    use predictive mean matching.
+<!-- A multiple imputation algorithm using this package is under development: called
+[`mimputest`][mimputest_gitlab].
+-->
 
-This package enables a minor variation on `mice`'s use of random forests.
-The prediction can be drawn from the in-bag samples in the terminal node for
-each _missing_ data point. Thus, the computational effort during prediction then
-scales with the number of missing values, rather than with the product of the
-size of the whole dataset and the number of trees (as in `mice`).
-
-A more general advantage of this package is re-cycling of the trained forest
-object and the separation of the (training) data from the forest, see `ranger`
-[issue #304](https://github.com/imbs-hl/ranger/issues/304).
-
-A multiple imputation algorithm using this package is under development: called
-[`mimputest`][mimputest_github].
-
+[cereal_url]: https://uscilab.github.io/cereal/
 [mice_cran]: https://cran.r-project.org/package=mice
-[miceranger_cran]: https://cran.r-project.org/package=miceRanger
-[missranger_cran]: https://cran.r-project.org/package=missRanger
 [ranger_cran]: https://cran.r-project.org/package=ranger
-[mimputest_github]: https://github.com/stephematician/mimputest
+[mimputest_gitlab]: https://gitlab.com/stephematician/mimputest
 
 
 ## Example
@@ -64,34 +49,59 @@ table(iris_test$Species, pred_iris_bagged$values)
 table(pred_iris_bagged$values, pred_iris_inbag$values)
 ```
 
+Literanger supports reading/writing random forests (serialization). We can
+save `rf_iris` above using the function call:
+
+```r
+write_literanger(rf_iris, "rf_iris.literanger")
+```
+
+In a new R session, we can read the random forest object in and predict for
+a new test set:
+
+```r
+test_idx <- sample(nrow(iris), 1/3 * nrow(iris))
+iris_test  <- iris[test_idx, ]
+rf_iris_copy <- read_literanger("rf_iris.literanger")
+table(iris_test$Specis, predict(rf_iris_copy, newdata=iris_test)$values)
+```
+
 
 ## Installation
 
-Installation is easy using [`devtools`][devtools_cran]:
+The release can be installed via:
 
 ```r
-library(devtools)
-install_github('stephematician/literanger')
+install.packages('literanger')
 ```
 
-The [`cpp11`][cpp11_cran] package is also required, available on CRAN:
+The development version can be installed using [`remotes`][remotes_cran]:
 
 ```r
-install.packages('cpp11')
+remotes::install_gitlab('stephematician/literanger')
 ```
 
-[cpp11_cran]: https://cran.r-project.org/package=cpp11
-[devtools_cran]: https://cran.r-project.org/package=devtools
+[literanger_cran]: https://cran.r-project.org/package=literanger
+[remotes_cran]: https://cran.r-project.org/package=remotes
+
+
+## Technical details
+
+A minor variation on `mice`'s use of random forests is available; each
+prediction is drawn from in-bag samples from a random tree - thus the
+computational effort is constant with respect to the size of the forest (number
+of trees) compared to the original implementation in `mice`.
+
+The interface of `ranger` was redesigned such that the trained forest
+object can be recycled, and the data for training and prediction are passed
+without (unnecessary) copies, see `ranger`
+[issue #304](https://github.com/imbs-hl/ranger/issues/304).
 
 
 ## To-do
 
-Not exhaustive:
+Non-exhaustive:
 
--   ~~prediction type: terminal nodes for every tree (e.g. for mice
-    algorithm);~~
--   ~~finish documentation, e.g. this README~~;
--   prepare CRAN submission;
 -   implement variable importance measures;
 -   probability and survival forests.
 
@@ -105,6 +115,9 @@ Doove, L.L., Van Buuren, S. and Dusseldorp, E., 2014. Recursive partitioning for
 missing data imputation in the presence of interaction effects. _Computational
 Statistics & Data Analysis_, 72, pp. 92-104.
 [doi:10.1016/j.csda.2013.10.025](https://doi.org/10.1016/j.csda.2013.10.025).
+
+Grant, W. S., and Voorhies, R., 2017. _cereal - A C++11 library for
+serialization_. [https://uscilab.github.io/cereal/][cereal_url].
 
 Van Buuren, S. 2007. Multiple imputation of discrete and continuous  data by
 fully conditional specification. _Statistical Methods in Medical Research_,

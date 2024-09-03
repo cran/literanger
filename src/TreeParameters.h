@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -19,6 +19,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+/* cereal types */
+#include "cereal/types/memory.hpp"
+#include "cereal/types/string.hpp"
+#include "cereal/types/vector.hpp"
 
 /* general literanger headers */
 #include "enum_types.h"
@@ -39,6 +44,8 @@ struct TreeParameters {
     using key_vector_ptr = std::shared_ptr<key_vector>;
     using dbl_vector_ptr = std::shared_ptr<dbl_vector>;
 
+    TreeParameters() = default;
+
     /** Generic tree parameter constructor
      * @param[in] n_predictor Number of predictors in the tree model.
      * @param[in] is_unordered Container of indicators for ordered predictors.
@@ -47,7 +54,7 @@ struct TreeParameters {
      * each tree.
      * @param[in] n_try The number of candidate predictors for each split.
      * @param[in] draw_always_predictor_keys The key of each predictor that will
-     * always be a candidate for splitting.
+     * always be a candidate for splitting (sorted by key).
      * @param[in] draw_predictor_weights Weights for each predictor when drawing
      * candidates.
      * @param[in] split_rule The rule for identifying the best split.
@@ -118,6 +125,14 @@ struct TreeParameters {
     size_t n_random_split;
     /**@}*/
 
+    template <typename archive_type>
+    void serialize(archive_type & archive);
+
+    template <typename archive_type>
+    static void load_and_construct(
+        archive_type & archive,
+        cereal::construct<TreeParameters> & construct
+    );
 
 };
 
@@ -146,6 +161,15 @@ inline TreeParameters::TreeParameters(
     if (this->n_try > this->n_predictor)
         throw std::domain_error("'n_try' can not be larger than number of "
             "predictors (columns).");
+}
+
+
+template <typename archive_type>
+void TreeParameters::serialize(archive_type & archive) {
+    archive(n_predictor, is_ordered, replace, sample_fraction, n_try,
+            draw_always_predictor_keys, draw_predictor_weights,
+            split_rule, min_metric_decrease, max_depth, min_split_n_sample,
+            min_leaf_n_sample, n_random_split);
 }
 
 

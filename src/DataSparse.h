@@ -2,7 +2,7 @@
  * This file is part of 'literanger'. literanger was adapted from the 'ranger'
  * package for R Statistical Software <https://www.r-project.org>. ranger was
  * authored by Marvin N Wright with the GNU General Public License version 3.
- * The adaptation was performed by Stephen Wade in 2023. literanger carries the
+ * The adaptation was performed by stephematician in 2023. literanger carries the
  * same license, terms, and permissions as ranger.
  *
  * literanger is free software: you can redistribute it and/or modify
@@ -16,13 +16,12 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with literanger. If not, see <http://www.gnu.org/licenses/>.
+ * along with literanger. If not, see <https://www.gnu.org/licenses/>.
  *
  * Written by:
  *
- *   Stephen Wade
- *   Cancer Council New South Wales
- *   Woolloomooloo NSW 2011
+ *   stephematician
+ *   stephematician@gmail.com
  *   Australia
  *-------------------------------------------------------------------------------
  */
@@ -114,7 +113,7 @@ inline double DataSparse::get_x(const size_t sample_key,
     /* test this TODO: */
     using int_t = cpp11::integers::value_type;
     const int_t j_start = x_p[predictor_key];
-    const int_t j_end = x_p[predictor_key + 1l];
+    const int_t j_end = x_p[predictor_key + (size_t)1l];
     if (j_start == j_end) return 0.0;
 
     const int_t row_offset = as_row_offset(sample_key, permute);

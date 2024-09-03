@@ -2,7 +2,7 @@
 # This file is part of 'literanger'. literanger was adapted from the 'ranger'
 # package for R statistical software. ranger was authored by Marvin N Wright
 # with the GNU General Public License version 3. The adaptation was performed by
-# Stephen Wade in 2023. literanger carries the same license, terms, and
+# stephematician in 2023. literanger carries the same license, terms, and
 # permissions as ranger.
 #
 # literanger is free software: you can redistribute it and/or modify
@@ -16,13 +16,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with literanger. If not, see <http://www.gnu.org/licenses/>.
+# along with literanger. If not, see <https://www.gnu.org/licenses/>.
 #
 # Written by:
 #
-#   Stephen Wade
-#   Cancer Council New South Wales
-#   Woolloomooloo NSW 2011
+#   stephematician
+#   stephematician@gmail.com
 #   Australia
 # ------------------------------------------------------------------------------
 
@@ -212,7 +211,7 @@
 #' pred_iris <- predict(rg_iris, newdata=iris_test)
 #' table(iris_test$Species, pred_iris$values)
 #'
-#' @author Stephen Wade <stephematician@gmail.com>, Marvin N Wright (original
+#' @author stephematician <stephematician@gmail.com>, Marvin N Wright (original
 #' ranger package)
 #'
 #' @references
@@ -303,6 +302,11 @@ train <- function(
     if (any(is.na(y)))
         stop("Missing values in the response.", call.=FALSE)
 
+    response_is_character <- is.character(y)
+    if (response_is_character) {
+        y <- as.factor(y)
+        warning("Converting character response to factor with as.factor().")
+    }
   # Check response levels
     if (is.factor(y))  {
         if (nlevels(y) != nlevels(droplevels(y))) {
@@ -625,7 +629,12 @@ train <- function(
         verbose
     )
 
-    if (is.factor(y)) result$response_levels <- levels(y)
+    if (is.factor(y)) {
+        result$response_levels <- levels(y)
+        result$response_ordered <- is.ordered(y)
+        result$response_is_character <- response_is_character
+    }
+    if (is.logical(y)) result$response_is_logical <- TRUE
 
     if (!is.null(predictor_levels)) result$predictor_levels <- predictor_levels
 

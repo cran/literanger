@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -71,7 +71,9 @@ void Tree<ImplT>::predict(const std::shared_ptr<const Data> data,
             }
         } else {
           /* NOTE: probably unsafe */
-            const ull_bitenc split_enc = *((size_t *)(&split_values[node_key]));
+            const ull_bitenc split_enc = *(
+                (unsigned long long *)(&split_values[node_key])
+            );
             if (!split_enc.test(std::floor(value) - 1)) {
                 node_key = left_children[node_key];
             } else {
@@ -205,7 +207,6 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
     ImplT & tree_impl = *static_cast<ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
-    dbl_vector candidate_values;
 
   /* Get the candidate values using extra-trees algorithm - i.e. randomly
    * sample between minimum and maximum value */
@@ -215,6 +216,7 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
     if (min == max) return;
 
   /* FIXME: should check n_random_split > 0? */
+    candidate_values.clear();
     candidate_values.reserve(n_random_split);
     std::uniform_real_distribution<double> U_rng(min, max);
     for (size_t j = 0; j != n_random_split; ++j)
@@ -230,8 +232,7 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
    * value as the new best value to split on. */
     auto update_best_value = [&](size_t j){ best_value = candidate_values[j]; };
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys,
-                                     candidate_values);
+    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
 
     tree_impl.best_decrease_by_real_value(
         split_key, n_sample_node, n_candidate_value,
@@ -275,11 +276,12 @@ void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
    * is drawn randomly from all available partitions that put at least one of
    * the observed levels to the right. */
     auto to_partition_key = [&](size_t j){
+        using ull_rng_t = std::uniform_int_distribution<unsigned long long>;
         ull_bitenc key = 0;
         { /* don't allow full or empty for splitting on present values */
             const size_t n_partition =
                 (2ull << (is_in_node.count() - 1ull)) - 2ull;
-            std::uniform_int_distribution<size_t> U_rng(1, n_partition);
+            ull_rng_t U_rng(1, n_partition);
 
             const ull_bitenc drawn_in_partition = U_rng(gen);
             size_t key_j = 0;
@@ -293,7 +295,7 @@ void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
         { /* allow full or empty for splitting on non-present values */
             const size_t n_partition =
                 (2ull << (is_ex_node.count() - 1ull)) - 1ull;
-            std::uniform_int_distribution<size_t> U_rng(0, n_partition);
+            ull_rng_t U_rng(0, n_partition);
 
             const ull_bitenc drawn_ex_partition = U_rng(gen);
             size_t key_j = 0;
@@ -328,7 +330,7 @@ void Tree<ImplT>::best_decrease_by_value_smallq(
     const size_t n_sample_node = get_n_sample_node(node_key);
   /* All values of predictors that are present in this node are candidates for
    * splitting. */
-    dbl_vector candidate_values;
+    candidate_values.clear();
     data->get_all_values(candidate_values, sample_keys, split_key,
                          start_pos[node_key], end_pos[node_key]);
 
@@ -347,8 +349,7 @@ void Tree<ImplT>::best_decrease_by_value_smallq(
         if (best_value == x1) best_value = x0;
     };
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys,
-                                     candidate_values);
+    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
 
     tree_impl.best_decrease_by_real_value(
         split_key, n_sample_node, n_candidate_value,
@@ -420,7 +421,7 @@ void Tree<ImplT>::best_decrease_by_value_unordered(
     const size_t n_sample_node = get_n_sample_node(node_key);
 
   /* Get the values of the predictor observed in this node. */
-    dbl_vector candidate_values;
+    candidate_values.clear();
     data->get_all_values(
         candidate_values,
         sample_keys, split_key, start_pos[node_key], end_pos[node_key]
@@ -474,7 +475,7 @@ double Tree<ImplT>::best_statistic_by_value(
 
   /* All values of predictors that are present in this node are candidates for
    * splitting. */
-    dbl_vector candidate_values;
+    candidate_values.clear();
     data->get_all_values(candidate_values, sample_keys, split_key,
                          start_pos[node_key], end_pos[node_key]);
 
@@ -482,8 +483,7 @@ double Tree<ImplT>::best_statistic_by_value(
   /* Break if pure or empty node. */
     if (n_candidate_value < 2) return -INFINITY;
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys,
-                                     candidate_values);
+    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
 
     /* best statistic and (split) value for this candidate */
     double this_statistic = -INFINITY, this_value = -INFINITY,

@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -82,6 +82,9 @@ struct ForestBase {
 
         const std::vector<TreeParameters> & get_tree_parameters() const;
 
+        template <typename archive_type>
+        void serialize(archive_type & archive);
+
 
     protected:
 
@@ -95,6 +98,13 @@ struct ForestBase {
         ForestBase(const TreeType tree_type,
                    const std::vector<TreeParameters> tree_parameters,
                    const bool save_memory);
+
+        /** @copydoc ForestBase::ForestBase(TreeType,std::vector<TreeParameters>,bool)
+         * @param[in] trees The (constructed) trees for the random forest. */
+        ForestBase(const TreeType tree_type,
+                   const std::vector<TreeParameters> tree_parameters,
+                   const bool save_memory,
+                   std::vector<std::unique_ptr<TreeBase>> && trees);
 
         /** Show the proportion of completed events in a phase.
          * @param[in] operation A suffix string that describes the current
@@ -169,3 +179,4 @@ std::unique_ptr<ForestBase> make_forest(ArgsT &&... args);
 
 
 #endif /* LITERANGER_FOREST_BASE_DECL_H */
+

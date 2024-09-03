@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -273,18 +273,20 @@ struct Tree : TreeBase {
          * Other invariants may also be evaluated. This is called before
          * best_decrease_by_real_value().
          *
+         * This is used when there is a performance advantage to building a
+         * new smaller index rather than consider too many zero-frequency
+         * splitting values.
+         *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
          * @param[in] data Data to grow (or train) tree with.
          * @param[in] sample_keys The partially-sorted keys in the sample for
          * this tree.
-         * @param[in] candidate_values The values that are candidates for
-         * splitting.
          */
         virtual void prepare_candidate_loop_via_value(
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
-            const key_vector & sample_keys, const dbl_vector & candidate_values
+            const key_vector & sample_keys
         ) = 0;
 
         /** Prepares the loop-invariants needed to evaluate the decrease for

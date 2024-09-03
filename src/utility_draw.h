@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -111,7 +111,7 @@ inline void draw_replace(const size_t n,
 
     for (size_t j = 0; j != n; ++j) {
         const size_t draw = U_rng(gen);
-        result.push_back(draw);
+        result.emplace_back(draw);
         ++inbag_counts[draw];
     }
 
@@ -136,7 +136,7 @@ inline void draw_replace_weighted(const size_t n,
 
     for (size_t j = 0; j != n; ++j) {
         const size_t draw = wtd_rng(gen);
-        result.push_back(draw);
+        result.emplace_back(draw);
         ++inbag_counts[draw];
     }
 
@@ -219,7 +219,7 @@ inline void draw_no_replace_weighted(const size_t n, const dbl_vector & weights,
         size_t draw;
         /* discard if already in-bag and redraw */
         do { draw = wtd_rng(gen); } while (inbag_counts[draw]);
-        result.push_back(draw);
+        result.emplace_back(draw);
         ++inbag_counts[draw];
     }
 

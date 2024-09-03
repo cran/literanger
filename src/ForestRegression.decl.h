@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -22,6 +22,9 @@
 #include <memory>
 #include <vector>
 
+/* cereal types */
+#include "cereal/access.hpp"
+
 /* general literanger headers */
 #include "enum_types.h"
 #include "globals.h"
@@ -33,7 +36,7 @@ namespace literanger {
 
 struct ForestRegression : public Forest<ForestRegression> {
 
-    friend class Forest<ForestRegression>;
+    friend struct Forest<ForestRegression>;
 
     public:
 
@@ -47,6 +50,23 @@ struct ForestRegression : public Forest<ForestRegression> {
         ForestRegression(const double min_prop,
                          const std::vector<TreeParameters> tree_parameters,
                          const bool save_memory);
+
+        /** @copydoc ForestRegression::ForestRegression(double,std::vector<TreeParameters>,bool)
+         * @param[in] trees ... TODO:
+         */
+        ForestRegression(const double min_prop,
+                         const std::vector<TreeParameters> tree_parameters,
+                         const bool save_memory,
+                         std::vector<std::unique_ptr<TreeBase>> && trees);
+
+        template <typename archive_type>
+        void serialize(archive_type & archive);
+
+        template <typename archive_type>
+        static void load_and_construct(
+            archive_type & archive,
+            cereal::construct<ForestRegression> & construct
+        );
 
 
     protected:

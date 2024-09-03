@@ -5,6 +5,20 @@
 #include "cpp11/declarations.hpp"
 #include <R_ext/Visibility.h>
 
+// cpp11_io.cpp
+cpp11::raws cpp11_serialize(cpp11::list object, const bool verbose);
+extern "C" SEXP _literanger_cpp11_serialize(SEXP object, SEXP verbose) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(cpp11_serialize(cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(object), cpp11::as_cpp<cpp11::decay_t<const bool>>(verbose)));
+  END_CPP11
+}
+// cpp11_io.cpp
+cpp11::list cpp11_deserialize(cpp11::raws object, const bool verbose);
+extern "C" SEXP _literanger_cpp11_deserialize(SEXP object, SEXP verbose) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(cpp11_deserialize(cpp11::as_cpp<cpp11::decay_t<cpp11::raws>>(object), cpp11::as_cpp<cpp11::decay_t<const bool>>(verbose)));
+  END_CPP11
+}
 // cpp11_predict.cpp
 cpp11::list cpp11_predict(cpp11::list object, cpp11::doubles_matrix<> x, cpp11::sexp sparse_x, std::string prediction_type, const size_t seed, const size_t n_thread, const bool verbose);
 extern "C" SEXP _literanger_cpp11_predict(SEXP object, SEXP x, SEXP sparse_x, SEXP prediction_type, SEXP seed, SEXP n_thread, SEXP verbose) {
@@ -22,8 +36,10 @@ extern "C" SEXP _literanger_cpp11_train(SEXP x, SEXP y, SEXP sparse_x, SEXP case
 
 extern "C" {
 static const R_CallMethodDef CallEntries[] = {
-    {"_literanger_cpp11_predict", (DL_FUNC) &_literanger_cpp11_predict,  7},
-    {"_literanger_cpp11_train",   (DL_FUNC) &_literanger_cpp11_train,   25},
+    {"_literanger_cpp11_deserialize", (DL_FUNC) &_literanger_cpp11_deserialize,  2},
+    {"_literanger_cpp11_predict",     (DL_FUNC) &_literanger_cpp11_predict,      7},
+    {"_literanger_cpp11_serialize",   (DL_FUNC) &_literanger_cpp11_serialize,    2},
+    {"_literanger_cpp11_train",       (DL_FUNC) &_literanger_cpp11_train,       25},
     {NULL, NULL, 0}
 };
 }

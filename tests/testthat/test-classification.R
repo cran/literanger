@@ -3,16 +3,23 @@ iris_mat <- data.matrix(iris)
 set.seed(42)
 rf_class_df <- train(data=iris, response_name="Species")
 set.seed(42)
+rf_ordered_df <- suppressWarnings(train(
+    data=modifyList(iris, list(Species=as.ordered(iris$Species))),
+    response_name="Species"
+))
+set.seed(42)
 rf_class_mat <- train(data=iris_mat, response_name="Species",
                       classification=TRUE)
 
 test_that("tree type is 'classification'", {
     expect_equal(rf_class_df$tree_type, "classification")
+    expect_equal(rf_ordered_df$tree_type, "classification")
     expect_equal(rf_class_mat$tree_type, "classification")
 })
 
 test_that("trained forest object has 'response_values' item", {
     expect_true(hasName(rf_class_df, "response_values"))
+    expect_true(hasName(rf_ordered_df, "response_values"))
     expect_true(hasName(rf_class_mat, "response_values"))
 })
 
@@ -85,6 +92,9 @@ test_that("can use class-specific weights when sampling with replacement", {
 test_that("can predict a single new observation", {
     expect_silent(pred_df <- predict(rf_class_df, newdata=head(iris, 1)))
     expect_equal(pred_df$values, iris[1,"Species"])
+    expect_silent(pred_ordered_df <- predict(rf_ordered_df,
+                                             newdata=head(iris, 1)))
+    expect_equal(pred_ordered_df$values, as.ordered(iris[,"Species"])[1])
     expect_silent(pred_mat <- predict(rf_class_mat,
                                       newdata=iris_mat[1,,drop=FALSE]))
     expect_equal(pred_mat$values, unname(iris_mat[1,"Species"]))
@@ -93,6 +103,8 @@ test_that("can predict a single new observation", {
 test_that("prediction has acceptable accuracy", {
     pred_df <- predict(rf_class_df, newdata=iris)
     expect_gt(mean(iris$Species == pred_df$values), 0.9)
+    pred_ordered_df <- predict(rf_ordered_df, newdata=iris)
+    expect_gt(mean(as.ordered(iris$Species) == pred_ordered_df$values), 0.9)
     pred_mat <- predict(rf_class_mat, newdata=iris_mat)
     expect_gt(mean(iris_mat[,'Species'] == pred_mat$values), 0.9)
 })
@@ -103,9 +115,33 @@ test_that("value-type for predicted factor is a factor", {
     expect_null(dim(pred$values))
 })
 
+test_that("value-type for predicted ordered factor is ordered", {
+    expect_silent(pred <- predict(rf_ordered_df, newdata=iris))
+    expect_is(pred$values, "ordered")
+    expect_null(dim(pred$values))
+})
+
 test_that("value-type for predicted numeric is a numeric", {
     pred <- predict(rf_class_mat, newdata=iris)
     expect_is(pred$values, "numeric")
+    expect_null(dim(pred$values))
+})
+
+test_that("value-type for logical response is preserved", {
+    dat <- iris
+    dat[["Species"]] <- dat[["Species"]] == "setosa"
+    rf <- train(data=dat, response_name="Species")
+    pred <- predict(rf, newdata=iris)
+    expect_is(pred$values, "logical")
+    expect_null(dim(pred$values))
+})
+
+test_that("value-type for character response is preserved", {
+    dat <- modifyList(iris, list(Species=as.character(iris$Species)))
+    expect_warning(rf <- train(data=dat, response_name="Species"),
+                   "Converting character response to factor")
+    pred <- predict(rf, newdata=iris)
+    expect_is(pred$values, "character")
     expect_null(dim(pred$values))
 })
 
@@ -143,12 +179,4 @@ test_that("get warning when unused factor levels in response", {
     expect_equal(sum(is.na(pred$values)), 0)
 })
 
-test_that("logical response is converted to factor", {
-    dat <- iris
-    dat[["Species"]] <- dat[["Species"]] == "setosa"
-    rf <- train(data=dat, response_name="Species")
-    pred <- predict(rf, newdata=iris)
-    expect_is(pred$values, "numeric")
-    expect_null(dim(pred$values))
-})
 

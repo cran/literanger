@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -25,6 +25,12 @@
 #include <limits>
 #include <random>
 #include <stdexcept>
+
+/* cereal types */
+#include "cereal/types/polymorphic.hpp"
+#include "cereal/types/unordered_map.hpp"
+#include "cereal/types/utility.hpp"
+#include "cereal/types/vector.hpp"
 
 /* general literanger headers */
 #include "utility_math.h"
@@ -52,6 +58,40 @@ inline TreeRegression::TreeRegression(const double min_prop,
     } break; }
 
 }
+
+
+inline TreeRegression::TreeRegression(
+    const double min_prop,
+    std::unordered_map<size_t,dbl_vector> && leaf_values,
+    std::unordered_map<size_t,double> && leaf_mean,
+    const TreeParameters & parameters,
+    const bool save_memory,
+    key_vector && split_keys, dbl_vector && split_values,
+    std::pair<key_vector,key_vector> && child_node_keys) :
+    Tree(
+        parameters, save_memory,
+        std::move(split_keys), std::move(split_values),
+        std::move(child_node_keys)
+    ), min_prop(min_prop),
+    leaf_values(std::move(leaf_values)),
+    leaf_mean(std::move(leaf_mean))
+{
+
+    switch (split_rule) {
+    case BETA: case EXTRATREES: case LOGRANK: case MAXSTAT: {
+    } break;
+    case HELLINGER: {
+        throw std::invalid_argument("Unsupported split metric for regression.");
+    } break;
+    default: {
+        throw std::invalid_argument("Invalid split metric.");
+    } break; }
+
+}
+
+
+inline const std::unordered_map<size_t,dbl_vector> &
+TreeRegression::get_leaf_values() const { return leaf_values; }
 
 
 template <PredictionType prediction_type, typename result_type,
@@ -102,6 +142,41 @@ void TreeRegression::predict_from_inbag(
 ) {
     result = node_key;
 }
+
+
+template <typename archive_type>
+void TreeRegression::serialize(archive_type & archive) {
+    archive(cereal::base_class<TreeBase>(this), min_prop,
+            leaf_values, leaf_mean);
+}
+
+
+template <typename archive_type>
+void TreeRegression::load_and_construct(
+    archive_type & archive,
+    cereal::construct<TreeRegression> & construct
+) {
+    TreeParameters tree_parameters; // = *this;
+    bool save_memory;
+    key_vector split_keys;
+    dbl_vector split_values;
+    std::pair<key_vector,key_vector> child_node_keys;
+    double min_prop;
+    std::unordered_map<size_t,dbl_vector> leaf_values;
+    std::unordered_map<size_t,double> leaf_mean;
+
+    archive(tree_parameters, save_memory,
+            split_keys, split_values, child_node_keys);
+    archive(min_prop, leaf_values, leaf_mean);
+
+    construct(
+        min_prop, std::move(leaf_values), std::move(leaf_mean),
+        tree_parameters, save_memory,
+        std::move(split_keys), std::move(split_values),
+        std::move(child_node_keys)
+    );
+}
+
 
 inline void TreeRegression::new_growth(
     const std::shared_ptr<const Data> data
@@ -177,7 +252,7 @@ inline void TreeRegression::finalise_node_aggregates() {
 inline void TreeRegression::prepare_candidate_loop_via_value(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys, const dbl_vector & candidate_values
+    const key_vector & sample_keys
 ) {
 
     const size_t n_candidate_value = candidate_values.size();
@@ -192,8 +267,11 @@ inline void TreeRegression::prepare_candidate_loop_via_value(
     for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
 
         const size_t sample_key = sample_keys[j];
-        const double response = split_rule != MAXSTAT ?
-            data->get_y(sample_key, 0) : response_scores[j - start_pos[node_key]];
+        const double response = split_rule != MAXSTAT ? (
+            data->get_y(sample_key, 0)
+        ) : (
+            response_scores[j - start_pos[node_key]]
+        );
         const size_t offset = std::distance(
             candidate_values.cbegin(),
             std::lower_bound(candidate_values.cbegin(), candidate_values.cend(),
@@ -235,7 +313,7 @@ inline void TreeRegression::prepare_candidate_loop_via_index(
         ++node_n_by_candidate[offset];
         node_sum_by_candidate[offset] += response;
         if (split_rule == BETA)
-            response_by_candidate[offset].push_back(response);
+            response_by_candidate[offset].emplace_back(response);
 
     }
 
@@ -376,6 +454,7 @@ void TreeRegression::best_statistic_by_real_value(
 
     double sum_lhs = 0;
     size_t n_lhs = 0;
+    size_t this_j = n_candidate_value;
 
     for (size_t j = 0; j != n_candidate_value - 1; ++j) {
 
@@ -393,17 +472,21 @@ void TreeRegression::best_statistic_by_real_value(
                                                   sum_lhs, sum_rhs);
 
         if (decrease > this_decrease) {
-            update_this_value(j);
+            this_j = j;
             this_decrease = decrease;
-            const double p_value_Lausen92 = maxstat_p_value_Lausen92(
-                this_decrease, min_prop
-            );
-            const double p_value_Lausen94 = maxstat_p_value_Lausen94(
-                this_decrease, n_sample_node, node_n_by_candidate, j + 1
-            );
-            this_p_value = std::min(p_value_Lausen92, p_value_Lausen94);
         }
 
+    }
+
+    if (this_j != n_candidate_value) {
+        update_this_value(this_j);
+        const double p_value_Lausen92 = maxstat_p_value_Lausen92(
+            this_decrease, min_prop
+        );
+        const double p_value_Lausen94 = maxstat_p_value_Lausen94(
+            this_decrease, n_sample_node, node_n_by_candidate, this_j + 1
+        );
+        this_p_value = std::min(p_value_Lausen92, p_value_Lausen94);
     }
 
 }
@@ -495,6 +578,9 @@ inline double TreeRegression::evaluate_decrease(
 
 
 } /* namespace literanger */
+
+
+CEREAL_REGISTER_TYPE(literanger::TreeRegression);
 
 
 #endif /* LITERANGER_TREE_REGRESSION_DEFN_H */

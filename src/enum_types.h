@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -23,6 +23,8 @@
 #include <type_traits>
 #include <unordered_map>
 
+/* cereal types */
+#include "cereal/types/string.hpp"
 
 namespace literanger {
 
@@ -66,6 +68,9 @@ SplitRule as_split_rule(std::string x);
 /** Convert a string to enumerated prediction type.
  * @param x "bagged", "inbag" or "nodes". */
 PredictionType as_prediction_type(std::string x);
+
+std::string as_string(TreeType x);
+std::string as_string(SplitRule x);
 
 
 /* Definitions */
@@ -126,7 +131,63 @@ inline PredictionType as_prediction_type(std::string x) {
 }
 
 
+inline std::string as_string(TreeType x) {
+
+    static std::unordered_map<TreeType, std::string> table = {
+        { TreeType::TREE_CLASSIFICATION, "classification" },
+        { TreeType::TREE_REGRESSION, "regression" }
+    };
+
+    return table.find(x)->second;
+
+};
+
+
+inline std::string as_string(SplitRule x) {
+
+    static std::unordered_map<SplitRule,std::string> table = {
+        {  SplitRule::LOGRANK, "gini" }, /* also 'variance' */
+        {  SplitRule::MAXSTAT, "maxstat" },
+        {  SplitRule::EXTRATREES, "extratrees" },
+        {  SplitRule::BETA, "beta" },
+        {  SplitRule::HELLINGER, "hellinger" }
+    };
+
+    return table.find(x)->second;
+
+}
+
+
 } /* namespace literanger */
+
+
+namespace cereal {
+
+    template <typename archive_type>
+    std::string save_minimal(const archive_type & archive,
+                             const literanger::TreeType & x) {
+        return literanger::as_string(x);
+    }
+
+    template <typename archive_type>
+    std::string save_minimal(const archive_type & archive,
+                             const literanger::SplitRule & x) {
+        return literanger::as_string(x);
+    }
+
+    template <typename archive_type>
+    void load_minimal(const archive_type & archive,
+                    literanger::TreeType & y, const std::string & x) {
+        y = literanger::as_tree_type(x);
+    }
+
+    template <typename archive_type>
+    void load_minimal(const archive_type & archive,
+                      literanger::SplitRule & y, const std::string & x) {
+        y = literanger::as_split_rule(x);
+    }
+
+} /* namespace cereal */
 
 
 #endif /* LITERANGER_ENUM_TYPES_H */

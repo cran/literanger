@@ -2,7 +2,7 @@
 # This file is part of 'literanger'. literanger was adapted from the 'ranger'
 # package for R statistical software. ranger was authored by Marvin N Wright
 # with the GNU General Public License version 3. The adaptation was performed by
-# Stephen Wade in 2023. literanger carries the same license, terms, and
+# stephematician in 2023. literanger carries the same license, terms, and
 # permissions as ranger.
 #
 # literanger is free software: you can redistribute it and/or modify
@@ -16,13 +16,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with literanger. If not, see <http://www.gnu.org/licenses/>.
+# along with literanger. If not, see <https://www.gnu.org/licenses/>.
 #
 # Written by:
 #
-#   Stephen Wade
-#   Cancer Council New South Wales
-#   Woolloomooloo NSW 2011
+#   stephematician
+#   stephematician@gmail.com
 #   Australia
 # ------------------------------------------------------------------------------
 
@@ -100,7 +99,7 @@
 #' # compare bagged prediction vs in-bag draw
 #' table(pred_iris_bagged$values, pred_iris_inbag$values)
 #'
-#' @author Stephen Wade <stephematician@gmail.com>, Marvin N Wright (original
+#' @author stephematician <stephematician@gmail.com>, Marvin N Wright (original
 #' ranger package)
 #'
 #' @references
@@ -213,10 +212,17 @@ predict.literanger <- function(
     result$tree_type <- object$tree_type
     result$seed <- seed
 
-    if (is.numeric(result$values) && !is.null(object$response_levels))
+    if (is.numeric(result$values) && !is.null(object$response_is_logical))
+        result$values <- as.logical(result$values)
+
+    if (is.numeric(result$values) && !is.null(object$response_levels)) {
         result$values <- factor(result$values,
                                 levels=seq_along(object$response_levels),
-                                labels=object$response_levels)
+                                labels=object$response_levels,
+                                ordered=object$response_ordered)
+        if (object$response_is_character)
+            result$values <- as.character(result$values)
+    }
 
     class(result) <- "literanger_prediction"
 

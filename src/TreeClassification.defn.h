@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -26,6 +26,13 @@
 #include <stdexcept>
 #include <vector>
 
+/* cereal types */
+#include "cereal/types/memory.hpp"
+#include "cereal/types/polymorphic.hpp"
+#include "cereal/types/unordered_map.hpp"
+#include "cereal/types/utility.hpp"
+#include "cereal/types/vector.hpp"
+
 /* general literanger headers */
 #include "utility.h"
 /* required literanger class definitions */
@@ -41,6 +48,43 @@ inline TreeClassification::TreeClassification(
     const bool save_memory
 ) :
     Tree(parameters, save_memory), response_weights(response_weights)
+{
+
+    switch (split_rule) {
+    case HELLINGER: {
+      /* Hellinger rule: applied only to binary classification  */
+        if (n_response_value != 2)
+            throw std::runtime_error("Cannot use Hellinger metric on "
+                "non-binary data.");
+    } break;
+    case LOGRANK: case EXTRATREES: {
+    } break;
+    case MAXSTAT: case BETA: {
+        throw std::invalid_argument("Unsupported split metric for "
+            "classification.");
+    } break;
+    default: {
+        throw std::invalid_argument("Invalid split metric.");
+    } break; }
+
+}
+
+inline TreeClassification::TreeClassification(
+    const dbl_vector_ptr response_weights,
+    std::unordered_map<size_t,key_vector> && leaf_keys,
+    std::unordered_map<size_t,double> && leaf_most_frequent,
+    const TreeParameters & parameters,
+    const bool save_memory,
+    key_vector && split_keys, dbl_vector && split_values,
+    std::pair<key_vector,key_vector> && child_node_keys
+) :
+    Tree(
+        parameters, save_memory,
+        std::move(split_keys), std::move(split_values),
+        std::move(child_node_keys)
+    ), response_weights(response_weights),
+    leaf_keys(std::move(leaf_keys)),
+    leaf_most_frequent(std::move(leaf_most_frequent))
 {
 
     switch (split_rule) {
@@ -103,8 +147,7 @@ void TreeClassification::predict_from_inbag(
     result_type & result
 ) {
     // TODO: check weighted - currently as per original ranger (ok?)
-    std::uniform_int_distribution<> U_rng(0,
-                                          leaf_keys.at(node_key).size() - 1);
+    std::uniform_int_distribution<> U_rng(0, leaf_keys.at(node_key).size() - 1);
     const size_t bag_key = U_rng(gen);
     result = leaf_keys.at(node_key)[bag_key];
 
@@ -121,6 +164,40 @@ void TreeClassification::predict_from_inbag(
 }
 
 
+template <typename archive_type>
+void TreeClassification::serialize(archive_type & archive) {
+    archive(cereal::base_class<TreeBase>(this), response_weights,
+            leaf_keys, leaf_most_frequent);
+}
+
+
+template <typename archive_type>
+void TreeClassification::load_and_construct(
+    archive_type & archive,
+    cereal::construct<TreeClassification> & construct
+) {
+    TreeParameters tree_parameters; // = *this;
+    bool save_memory;
+    key_vector split_keys;
+    dbl_vector split_values;
+    std::pair<key_vector,key_vector> child_node_keys;
+    dbl_vector_ptr response_weights;
+    std::unordered_map<size_t,key_vector> leaf_keys;
+    std::unordered_map<size_t,double> leaf_most_frequent;
+
+    archive(tree_parameters, save_memory,
+            split_keys, split_values, child_node_keys);
+    archive(response_weights, leaf_keys, leaf_most_frequent);
+
+    construct(
+        response_weights, std::move(leaf_keys), std::move(leaf_most_frequent),
+        tree_parameters, save_memory,
+        std::move(split_keys),std::move(split_values),
+        std::move(child_node_keys)
+    );
+}
+
+
 inline void TreeClassification::resample_response_wise_impl(
     const std::shared_ptr<const Data> data,
     key_vector & sample_keys,
@@ -134,7 +211,7 @@ inline void TreeClassification::resample_response_wise_impl(
 
     if (replace) {
 
-        double start = 0;
+        double start = 0.0;
         for (size_t j = 0; j != sample_fraction->size(); ++j) {
 
             const double end = start + (*sample_fraction)[j];
@@ -155,7 +232,7 @@ inline void TreeClassification::resample_response_wise_impl(
 
     } else {
 
-        double start = 0;
+        double start = 0.0;
         key_vector sample_j;
         for (size_t j = 0; j != sample_fraction->size(); ++j) {
 
@@ -252,7 +329,7 @@ inline void TreeClassification::finalise_node_aggregates() { }
 inline void TreeClassification::prepare_candidate_loop_via_value(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys, const dbl_vector & candidate_values
+    const key_vector & sample_keys
 ) {
 
     const key_vector & response_keys = data->get_response_index();
@@ -442,13 +519,13 @@ inline double TreeClassification::evaluate_decrease(
 
       /* Decrease of impurity */
         const double a1 = sqrt(tpr) - sqrt(fpr);
-        const double a2 = sqrt(1 - tpr) - sqrt(1 - fpr);
+        const double a2 = sqrt(1.0 - tpr) - sqrt(1.0 - fpr);
         return sqrt(a1 * a1 + a2 * a2);
     } break;
     case LOGRANK: case EXTRATREES: {
       /* Use (weighted) sum of square count to measure node impurity. */
-        double sum_lhs_sq = 0;
-        double sum_rhs_sq = 0;
+        double sum_lhs_sq = 0.0;
+        double sum_rhs_sq = 0.0;
         for (size_t k = 0; k != n_response_value; ++k) {
             const double node_n_by_response_rhs_k =
                 node_n_by_response[k] - node_n_by_response_lhs[k];
@@ -467,6 +544,9 @@ inline double TreeClassification::evaluate_decrease(
 
 
 } /* namespace literanger */
+
+
+CEREAL_REGISTER_TYPE(literanger::TreeClassification);
 
 
 #endif /* LITERANGER_TREE_CLASSIFICATION_DEFN_H */

@@ -6,7 +6,7 @@
  * license. literanger's C++ core is distributed with the same license, terms,
  * and permissions as ranger's C++ core.
  *
- * Copyright [2023] [Stephen Wade]
+ * Copyright [2023] [stephematician]
  *
  * This software may be modified and distributed under the terms of the MIT
  * license. You should have received a copy of the MIT license along with
@@ -24,6 +24,13 @@
 #include <random>
 #include <stdexcept>
 #include <unordered_map>
+#include <utility>
+
+/* cereal types */
+#include "cereal/types/memory.hpp"
+#include "cereal/types/polymorphic.hpp"
+#include "cereal/types/string.hpp"
+#include "cereal/types/vector.hpp"
 
 /* general literanger headers */
 #include "utility.h" // most_frequent_value
@@ -44,7 +51,7 @@ inline ForestClassification::ForestClassification(
     response_weights(
         response_weights->size() != 0 ?
             response_weights :
-            dbl_vector_ptr(new dbl_vector(response_values->size(), 1))
+            dbl_vector_ptr(new dbl_vector(response_values->size(), 1.0))
     )
 {
     if (this->response_weights->size() != n_response_value)
@@ -58,7 +65,63 @@ inline ForestClassification::ForestClassification(
     if (any_hellinger && n_response_value != 2)
         throw std::invalid_argument("Hellinger metric only implemented for "
             "binary classification.");
+}
 
+
+inline ForestClassification::ForestClassification(
+    const dbl_vector_ptr response_values, const dbl_vector_ptr response_weights,
+    const std::vector<TreeParameters> tree_parameters, const bool save_memory,
+    std::vector<std::unique_ptr<TreeBase>> && trees
+) :
+    Forest(TREE_CLASSIFICATION, tree_parameters, save_memory, std::move(trees)),
+    response_values(response_values),
+    response_weights(
+        response_weights->size() != 0 ?
+            response_weights :
+            dbl_vector_ptr(new dbl_vector(response_values->size(), 1.0))
+    )
+{
+    if (this->response_weights->size() != n_response_value)
+        throw std::invalid_argument("Number of response weights does not match "
+            "number of observed response values");
+
+    bool any_hellinger = false;
+    for (const auto & parameters : this->tree_parameters) {
+        any_hellinger |= parameters.split_rule == HELLINGER;
+    }
+    if (any_hellinger && n_response_value != 2)
+        throw std::invalid_argument("Hellinger metric only implemented for "
+            "binary classification.");
+}
+
+
+template <typename archive_type>
+void ForestClassification::serialize(archive_type & archive) {
+    archive(cereal::base_class<ForestBase>(this),
+            response_values, response_weights);
+}
+
+
+template <typename archive_type>
+void ForestClassification::load_and_construct(
+    archive_type & archive,
+    cereal::construct<ForestClassification> & construct
+) {
+    TreeType tree_type;
+    std::vector<TreeParameters> tree_parameters;
+    bool save_memory;
+    std::vector<std::unique_ptr<TreeBase>> trees;
+    dbl_vector_ptr response_values;
+    dbl_vector_ptr response_weights;
+
+    archive(tree_type, tree_parameters, save_memory, trees);
+    archive(response_values, response_weights);
+
+    if (tree_type != TREE_CLASSIFICATION)
+        throw std::runtime_error("foo");
+
+    construct(response_values, response_weights,
+              tree_parameters, save_memory, std::move(trees));
 }
 
 
@@ -373,7 +436,11 @@ inline void ForestClassification::aggregate_one_item<NODES>(
     const size_t item_key
 ) { }
 
+
 } /* namespace literanger */
+
+
+CEREAL_REGISTER_TYPE(literanger::ForestClassification);
 
 
 #endif /* LITERANGER_FOREST_CLASSIFICATION_DEFN_H */

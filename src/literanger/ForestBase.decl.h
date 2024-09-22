@@ -25,14 +25,14 @@
 #include <vector>
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
-#include "utility.h" // toggle_print
-#include "utility_interrupt.h" // interruptor
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
+#include "literanger/utility.h" // toggle_print
+#include "literanger/utility_interrupt.h" // interruptor
 /* required literanger class declarations */
-#include "Data.decl.h"
-#include "TreeBase.decl.h"
-#include "TreeParameters.h"
+#include "literanger/Data.decl.h"
+#include "literanger/TreeBase.decl.h"
+#include "literanger/TreeParameters.h"
 
 
 namespace literanger {

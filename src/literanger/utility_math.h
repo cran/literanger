@@ -23,8 +23,8 @@
 #include <vector>
 
 /* general literanger headers */
-#include "utility.h"
-#include "utility_lgamma.h"
+#include "literanger/utility.h"
+#include "literanger/utility_lgamma.h"
 
 
 namespace literanger {

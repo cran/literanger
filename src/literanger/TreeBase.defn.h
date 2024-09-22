@@ -16,7 +16,7 @@
 #define LITERANGER_TREE_BASE_DEFN_H
 
 /* class declaration */
-#include "TreeBase.decl.h"
+#include "literanger/TreeBase.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -29,9 +29,9 @@
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
-#include "utility_draw.h"
+#include "literanger/utility_draw.h"
 /* required literanger class definitions */
-#include "Data.defn.h"
+#include "literanger/Data.defn.h"
 
 
 namespace literanger {

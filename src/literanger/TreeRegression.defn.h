@@ -16,7 +16,7 @@
 #define LITERANGER_TREE_REGRESSION_DEFN_H
 
 /* class declaration */
-#include "TreeRegression.decl.h"
+#include "literanger/TreeRegression.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -33,10 +33,10 @@
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
-#include "utility_math.h"
+#include "literanger/utility_math.h"
 /* required literanger class definitions */
-#include "Data.defn.h"
-#include "Tree.defn.h"
+#include "literanger/Data.defn.h"
+#include "literanger/Tree.defn.h"
 
 
 namespace literanger {
@@ -253,12 +253,19 @@ inline void TreeRegression::prepare_candidate_loop_via_value(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
     const key_vector & sample_keys
-) {
+) const {
 
     const size_t n_candidate_value = candidate_values.size();
 
-    node_n_by_candidate.assign(n_candidate_value, 0);
-    node_sum_by_candidate.assign(n_candidate_value, 0);
+    if (node_n_by_candidate.size() < n_candidate_value) {
+        node_n_by_candidate.resize(n_candidate_value);
+    }
+    std::fill_n(node_n_by_candidate.begin(), n_candidate_value, 0);
+    if (node_sum_by_candidate.size() < n_candidate_value) {
+        node_sum_by_candidate.resize(n_candidate_value);
+    }
+    std::fill_n(node_sum_by_candidate.begin(), n_candidate_value, 0);
+
     if (split_rule == BETA) {
         response_by_candidate.resize(n_candidate_value);
         for (auto & responses : response_by_candidate) responses.clear();
@@ -292,7 +299,7 @@ inline void TreeRegression::prepare_candidate_loop_via_index(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
     const key_vector & sample_keys
-) {
+) const {
 
     const size_t n_candidate_value =
         data->get_n_unique_predictor_value(split_key);
@@ -308,7 +315,7 @@ inline void TreeRegression::prepare_candidate_loop_via_index(
 
         const size_t sample_key = sample_keys[j];
         const double response = data->get_y(sample_key, 0);
-        const size_t offset = data->get_index(sample_key, split_key);
+        const size_t offset = data->raw_get_index(sample_key, split_key);
 
         ++node_n_by_candidate[offset];
         node_sum_by_candidate[offset] += response;

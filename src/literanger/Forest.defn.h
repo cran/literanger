@@ -16,7 +16,7 @@
 #define LITERANGER_FOREST_DEFN_H
 
 /* class declaration */
-#include "Forest.decl.h"
+#include "literanger/Forest.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -28,11 +28,11 @@
 #include <vector>
 
 /* general literanger headers */
-#include "utility.h" // equal_split
+#include "literanger/utility.h" // equal_split
 /* required literanger class definitions */
-#include "Data.defn.h"
-#include "ForestBase.defn.h"
-#include "TreeBase.defn.h"
+#include "literanger/Data.defn.h"
+#include "literanger/ForestBase.defn.h"
+#include "literanger/TreeBase.defn.h"
 
 
 namespace literanger {

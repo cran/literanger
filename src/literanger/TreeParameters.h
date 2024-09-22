@@ -26,8 +26,8 @@
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
 
 
 namespace literanger {

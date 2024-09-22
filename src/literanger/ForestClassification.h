@@ -12,10 +12,10 @@
  * license. You should have received a copy of the MIT license along with
  * literanger. If not, see <https://opensource.org/license/mit/>.
  */
-#ifndef LITERANGER_TREE_REGRESSION_H
-#define LITERANGER_TREE_REGRESSION_H
+#ifndef LITERANGER_FOREST_CLASSIFICATION_H
+#define LITERANGER_FOREST_CLASSIFICATION_H
 
-#include "TreeRegression.defn.h"
+#include "literanger/ForestClassification.defn.h"
 
-#endif /* LITERANGER_TREE_REGRESSION_H */
+#endif /* LITERANGER_FOREST_CLASSIFICATION_H */
 

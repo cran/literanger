@@ -16,7 +16,7 @@
 #define LITERANGER_DATA_DEFN_H
 
 /* class declaration */
-#include "Data.decl.h"
+#include "literanger/Data.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -142,6 +142,14 @@ inline size_t Data::get_index(const size_t sample_key,
     if (predictor_key >= n_col)
         throw std::invalid_argument("Predictor key must be less than number of "
             "columns.");
+    return predictor_index[predictor_key * n_row + row];
+}
+
+
+inline size_t Data::raw_get_index(const size_t sample_key,
+                                  const size_t predictor_key,
+                                  const bool permute) const noexcept {
+    const size_t row = as_row_offset(sample_key, permute);
     return predictor_index[predictor_key * n_row + row];
 }
 

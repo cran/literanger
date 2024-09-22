@@ -16,7 +16,7 @@
 #define LITERANGER_FOREST_CLASSIFICATION_DECL_H
 
 /* base class declaration */
-#include "Forest.decl.h"
+#include "literanger/Forest.decl.h"
 
 #include <cstddef>
 #include <memory>
@@ -26,10 +26,10 @@
 #include "cereal/access.hpp"
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
 /* required literanger class declarations */
-#include "Data.decl.h"
+#include "literanger/Data.decl.h"
 
 
 namespace literanger {

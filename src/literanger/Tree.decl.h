@@ -16,17 +16,17 @@
 #define LITERANGER_TREE_DECL_H
 
 /* base class declaration */
-#include "TreeBase.decl.h"
+#include "literanger/TreeBase.decl.h"
 
 /* standard library headers */
 #include <cstddef>
 #include <memory>
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
 /* required literanger class declarations */
-#include "Data.decl.h"
+#include "literanger/Data.decl.h"
 
 
 namespace literanger {
@@ -287,7 +287,7 @@ struct Tree : TreeBase {
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
-        ) = 0;
+        ) const = 0;
 
         /** Prepares the loop-invariants needed to evaluate the decrease for
          * each candidate value.
@@ -308,7 +308,7 @@ struct Tree : TreeBase {
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
-        ) = 0;
+        ) const = 0;
 
         virtual void finalise_candidate_loop();
 

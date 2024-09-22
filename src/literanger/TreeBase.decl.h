@@ -23,11 +23,11 @@
 #include <vector>
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
 /* required literanger class declarations */
-#include "Data.decl.h"
-#include "TreeParameters.h"
+#include "literanger/Data.decl.h"
+#include "literanger/TreeParameters.h"
 
 
 namespace literanger {
@@ -173,7 +173,7 @@ struct TreeBase {
 
         /** Count of the number of observations for each candidate split
          * value. */
-        count_vector node_n_by_candidate;
+        mutable count_vector node_n_by_candidate;
 
         /** Storage for candidate value (index) when selecting split */
         dbl_vector candidate_values;

@@ -1,11 +1,31 @@
 # Changelog - literanger
 
+## [0.1.1](https://gitlab.com/stephematician/literanger/-/tags/v0.1.1) - 2024-09-13
+
+Performance improved. R interface and C++ core have been separated.
+
+### Changed
+
+-   Set `Depends` to R >= 3.6.0.
+-   Training speed was increased by ~25% by reducing memory allocations
+    [`19e7c475`](https://gitlab.com/stephematician/literanger/-/commit/19e7c475)
+    and inlining access to data.
+    [`233063e0`](https://gitlab.com/stephematician/literanger/-/commit/233063e0).
+-   Source code underwent a minor re-organisation to separate the R-specific
+    components from the C++ library.
+
+###  Added
+
+-   `DataVector` class to read, write, and pass data without R.
+
+
 ## [0.1.0](https://gitlab.com/stephematician/literanger/-/tags/v0.1.0) - 2024-09-03
 
 _New feature_! literanger can now serialize trained random forests using
 [cereal](https://uscilab.github.io/cereal/).
 
-The project has been moved to gitlab <https://gitlab.com/stephematician/literanger>.
+The project has been moved to GitLab:
+<https://gitlab.com/stephematician/literanger>.
 
 ### Changed
 

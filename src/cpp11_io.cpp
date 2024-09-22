@@ -43,14 +43,15 @@
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
+/* required literanger class headers */
+#include "literanger/ForestClassification.h"
+#include "literanger/ForestRegression.h"
+
 /* literanger R package headers */
 #include "cpp11_utility.h"
 
-/* required literanger class headers */
-#include "ForestClassification.h"
-#include "ForestRegression.h"
 
 
 [[cpp11::register]]

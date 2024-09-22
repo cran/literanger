@@ -39,7 +39,7 @@
 #include "R.h"
 
 /* required literanger class definition */
-#include "utility_interrupt.h"
+#include "literanger/utility_interrupt.h"
 
 
 namespace literanger {

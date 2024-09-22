@@ -5,7 +5,7 @@ literanger: A fast implementation of random forests for multiple imputation
 [![coverage report](https://gitlab.com/stephematician/literanger/badges/main/coverage.svg)](https://gitlab.com/stephematician/literanger/-/commits/main)
 [![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
 
-_stephematician_
+by _stephematician_
 
 `literanger` is an adaptation of the [`ranger`][ranger_cran] R package for
 training and predicting from random forest models within multiple imputation

@@ -29,7 +29,7 @@
 #define LITERANGER_DATA_R_H
 
 /* base class definition */
-#include "Data.h"
+#include "literanger/Data.h"
 
 /* standard library headers */
 #include <cstddef>
@@ -60,11 +60,11 @@ struct DataR : public Data {
         /** @copydoc Data::get_x */
         double get_x(const size_t sample_key,
                      const size_t predictor_key,
-                     const bool permute = false) const override;
+                     const bool permute = false) const noexcept override;
 
         /** @copydoc Data::get_y */
         double get_y(const size_t sample_key,
-                     const size_t column) const override;
+                     const size_t column) const noexcept override;
 
 
     private:
@@ -93,12 +93,13 @@ inline DataR::DataR(const cpp11::doubles_matrix<> x,
 
 inline double DataR::get_x(const size_t sample_key,
                            const size_t predictor_key,
-                           const bool permute) const {
+                           const bool permute) const noexcept {
     return x(as_row_offset(sample_key, permute), predictor_key);
 }
 
 
-inline double DataR::get_y(const size_t sample_key, const size_t column) const {
+inline double DataR::get_y(const size_t sample_key,
+                           const size_t column) const noexcept {
     return y(sample_key, column);
 }
 

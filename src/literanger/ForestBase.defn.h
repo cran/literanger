@@ -16,7 +16,7 @@
 #define LITERANGER_FOREST_BASE_DEFN_H
 
 /* class declaration */
-#include "ForestBase.decl.h"
+#include "literanger/ForestBase.decl.h"
 
 /* standard library headers */
 #include <chrono>

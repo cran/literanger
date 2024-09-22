@@ -38,7 +38,7 @@
 #include "cpp11.hpp"
 
 /* general literanger headers */
-#include "enum_types.h"
+#include "literanger/enum_types.h"
 
 /** Train a random forest.
  *

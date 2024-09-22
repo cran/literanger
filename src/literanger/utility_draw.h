@@ -22,7 +22,7 @@
 #include <stdexcept>
 
 /* general literanger headers */
-#include "globals.h"
+#include "literanger/globals.h"
 
 
 namespace literanger {

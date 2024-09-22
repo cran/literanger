@@ -12,41 +12,47 @@
  * license. You should have received a copy of the MIT license along with
  * literanger. If not, see <https://opensource.org/license/mit/>.
  */
-#ifndef LITERANGER_TREE_REGRESSION_DECL_H
-#define LITERANGER_TREE_REGRESSION_DECL_H
+#ifndef LITERANGER_TREE_CLASSIFICATION_DECL_H
+#define LITERANGER_TREE_CLASSIFICATION_DECL_H
 
 /* base class declaration */
-#include "Tree.decl.h"
+#include "literanger/Tree.decl.h"
 
 /* standard library headers */
 #include <cstddef>
 #include <memory>
-#include <vector>
 #include <unordered_map>
 
+/* cereal types */
+#include "cereal/access.hpp"
+
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
 /* required literanger class declarations */
-#include "Data.decl.h"
+#include "literanger/Data.decl.h"
 
 
 namespace literanger {
 
-struct TreeRegression: Tree<TreeRegression> {
+struct TreeClassification : Tree<TreeClassification> {
 
-    friend struct Tree<TreeRegression>;
+    friend struct Tree<TreeClassification>;
 
     public:
 
-        /** Construct a regression tree.
-         *
-         */
-        TreeRegression(const double min_prop,
-                       const TreeParameters & parameters,
-                       const bool save_memory);
-
-        /** @copydoc TreeRegression::TreeRegression(double,TreeParameters&,bool)
+        /** Construct a classification tree.
+         * @param[in] response_weights An vector of weights for each value of
+         * the response (each class).
+         * @param[in] parameters Parameters that describe the sampling,
+         * drawing, and splitting for trees in a random forest.
+         * @param[in] save_memory Indicator whether to aggressively release
+         * memory and omit building an index (which takes up memory but speeds
+         * up training). */
+        TreeClassification(const dbl_vector_ptr response_weights,
+                           const TreeParameters & parameters,
+                           const bool save_memory);
+        /** @copydoc TreeClassification::TreeClassifiction(dbl_vector_ptr,TreeParameters&,bool)
          * @param[in] split_keys The predictor key for each node that identifies
          * the variable to split by.
          * @param[in] split_values The value for each node that determines
@@ -54,26 +60,26 @@ struct TreeRegression: Tree<TreeRegression> {
          * @param[in] child_node_keys A pair of containers for left and right
          * child-node keys
          */
-        TreeRegression(
-            const double min_prop,
-            std::unordered_map<size_t,dbl_vector> && leaf_values,
-            std::unordered_map<size_t,double> && leaf_mean,
+        TreeClassification(
+            const dbl_vector_ptr response_weights,
+            std::unordered_map<size_t,key_vector> && leaf_keys,
+            std::unordered_map<size_t,double> && leaf_most_frequent,
             const TreeParameters & parameters, const bool save_memory,
             key_vector && split_keys, dbl_vector && split_values,
             std::pair<key_vector,key_vector> && child_node_keys
         );
 
-        const std::unordered_map<size_t,dbl_vector> & get_leaf_values() const;
+        const std::unordered_map<size_t,key_vector> & get_leaf_keys() const;
 
         /** Predict response for a leaf (terminal) node.
          *
-         * Uses the responses that were in-bag during training of the tree to
+         * Uses the response that were in-bag during training of the tree to
          * predict or draw a response.
          *
-         * @param[in] node_key Identifier of node.
+         * @param[in] node_key Index (key) of node.
          * @param[out] result The predicted or otherwise-drawn value.
          * @tparam prediction_type The enumerated type of prediction to perform
-         * e.g. bagged, impute.
+         * e.g. bagged, imputation.
          * @tparam result_type The type of data to return; usually a single
          * value e.g. double.
          */
@@ -98,40 +104,52 @@ struct TreeRegression: Tree<TreeRegression> {
         template <typename archive_type>
         static void load_and_construct(
             archive_type & archive,
-            cereal::construct<TreeRegression> & construct
+            cereal::construct<TreeClassification> & construct
         );
 
 
     protected:
 
-        const double min_prop;
+        /** A container of the weight for each response value. */
+        const dbl_vector_ptr response_weights;
 
-        double node_sum;
+        /** The number of unique response values. */
+        const size_t n_response_value = response_weights->size();
 
-        double node_var;
+        /** The count of each response value for the node being evaluated. */
+        dbl_vector node_n_by_response = dbl_vector(n_response_value, 0);
 
-        /** Sum of the responses for each candidate split value. */
-        mutable dbl_vector node_sum_by_candidate;
-
-        /** Responses in intervals defined by each candidate split value. Each
-         * interval is closed at the right. Used for the beta split rule. */
-        mutable std::vector<dbl_vector> response_by_candidate;
-
-        /** Used by max-stat rule */
-        mutable dbl_vector response_scores;
+        /** Count of the number of observations for each combination of
+         * candidate split value and response. */
+        mutable count_vector node_n_by_candidate_and_response;
 
         /** A map from node keys for each leaf node to the observation keys
-         * that was in-bag for the node during growth (training). */
-        std::unordered_map<size_t,dbl_vector> leaf_values;
+         *  that was in-bag for the node during growth (training). */
+        std::unordered_map<size_t,key_vector> leaf_keys;
 
-        /** A map from node keys for each leaf node to the mean value of the
-         * in-bag responses during growth (training). */
-        mutable std::unordered_map<size_t,double> leaf_mean;
+        /** A map from node keys for each leaf node to the most frequent value
+         *  that was in-bag for the node during growth (training). */
+        mutable std::unordered_map<size_t,double> leaf_most_frequent;
 
 
     private:
 
-        /** Prepare a regression tree for growth by reserving space for
+        /** Implements the response-wise bootstrap sampling for a classification
+         * tree.
+         * @param[in] data Data to grow (or train) tree with. Contains
+         * observations of predictors and the response, the former has
+         * predictors across columns and observations by row, and the latter is
+         * usually a column vector (or matrix).
+         * @param[out] sample_keys A container of randomly drawn keys (i.e.
+         * row-offsets) of observations.
+         * @param[out] inbag_counts A container of counts of the number of
+         * timees each observation appears in-bag.
+         */
+        void resample_response_wise_impl(const std::shared_ptr<const Data> data,
+                                         key_vector & sample_keys,
+                                         count_vector & inbag_counts);
+
+        /** Prepare a classification tree for growth by reserving space for
          * terminal nodes.
          *
          * @param[in] data Data to grow (or train) tree with. Contains
@@ -160,19 +178,19 @@ struct TreeRegression: Tree<TreeRegression> {
         /** @copydoc Tree::finalise_node_aggregates() */
         void finalise_node_aggregates();
 
-        /** @copydoc Tree::prepare_loop_invariants_via_value() */
+        /** @copydoc Tree::prepare_candidate_loop_via_value() */
         void prepare_candidate_loop_via_value(
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
-        );
+        ) const;
 
-        /** @copydoc Tree::prepare_loop_invariants_via_index() */
+        /** @copydoc Tree::prepare_candidate_loop_via_index() */
         void prepare_candidate_loop_via_index(
             const size_t split_key, const size_t node_key,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
-        );
+        ) const;
 
         /** @copydoc Tree::finalise_loop_invariants() */
         void finalise_candidate_loop();
@@ -229,7 +247,7 @@ struct TreeRegression: Tree<TreeRegression> {
             const size_t n_sample_node,
             const size_t n_partition, CallableT to_partition_key,
             double & best_decrease, size_t & best_split_key, double & best_value
-        );
+        ) const;
 
         template <typename UpdateT>
         void best_statistic_by_real_value(
@@ -240,15 +258,16 @@ struct TreeRegression: Tree<TreeRegression> {
 
         /** Evaluates the decrease in node impurity given the counts to the left
          * of the split.
-         *
+         * @param[in] n_by_response_lhs The count by each response to the left
+         * of the split.
          * @param[in] n_lhs The number of observations in the node to the left
          * of the split.
          * @param[in] n_rhs The number of observations in the node to the right
          * of the split.
          */
         double evaluate_decrease(
-            const size_t n_lhs, const size_t n_rhs,
-            const double sum_lhs, const double sum_rhs
+            const count_vector & n_by_response_lhs,
+            const size_t n_lhs, const size_t n_rhs
         ) const;
 
 
@@ -258,5 +277,5 @@ struct TreeRegression: Tree<TreeRegression> {
 } /* namespace literanger */
 
 
-#endif /* LITERANGER_TREE_REGRESSION_DECL_H */
+#endif /* LITERANGER_TREE_CLASSIFICATION_DECL_H */
 

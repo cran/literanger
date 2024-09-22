@@ -29,7 +29,7 @@
 #define LITERANGER_DATA_SPARSE_H
 
 /* base class definition */
-#include "Data.h"
+#include "literanger/Data.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -72,11 +72,11 @@ struct DataSparse : public Data {
         /** @copydoc Data::get_x */
         double get_x(const size_t sample_key,
                      const size_t predictor_key,
-                     const bool permute = false) const override;
+                     const bool permute = false) const noexcept override;
 
         /** @copydoc Data::get_y */
         double get_y(const size_t sample_key,
-                     const size_t column) const override;
+                     const size_t column) const noexcept override;
 
 
     private:
@@ -109,7 +109,7 @@ DataSparse::DataSparse(
 
 inline double DataSparse::get_x(const size_t sample_key,
                                 const size_t predictor_key,
-                                const bool permute) const {
+                                const bool permute) const noexcept {
     /* test this TODO: */
     using int_t = cpp11::integers::value_type;
     const int_t j_start = x_p[predictor_key];
@@ -127,7 +127,7 @@ inline double DataSparse::get_x(const size_t sample_key,
 
 
 inline double DataSparse::get_y(const size_t sample_key,
-                                const size_t column) const {
+                                const size_t column) const noexcept {
     return y(sample_key, column);
 }
 

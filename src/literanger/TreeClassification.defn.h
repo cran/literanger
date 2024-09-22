@@ -16,7 +16,7 @@
 #define LITERANGER_TREE_CLASSIFICATION_DEFN_H
 
 /* class declaration */
-#include "TreeClassification.decl.h"
+#include "literanger/TreeClassification.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -34,10 +34,10 @@
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
-#include "utility.h"
+#include "literanger/utility.h"
 /* required literanger class definitions */
-#include "Data.defn.h"
-#include "Tree.defn.h"
+#include "literanger/Data.defn.h"
+#include "literanger/Tree.defn.h"
 
 
 namespace literanger {
@@ -330,15 +330,21 @@ inline void TreeClassification::prepare_candidate_loop_via_value(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
     const key_vector & sample_keys
-) {
+) const {
 
     const key_vector & response_keys = data->get_response_index();
     const size_t n_candidate_value = candidate_values.size();
 
-    node_n_by_candidate_and_response.assign(
-        n_candidate_value * n_response_value, 0
-    );
-    node_n_by_candidate.assign(n_candidate_value, 0);
+    {
+        const size_t n_alloc = n_candidate_value * n_response_value;
+        if (node_n_by_candidate_and_response.size() < n_alloc)
+            node_n_by_candidate_and_response.resize(n_alloc);
+        std::fill_n(node_n_by_candidate_and_response.begin(), n_alloc, 0);
+    }
+    if (node_n_by_candidate.size() < n_candidate_value) {
+        node_n_by_candidate.resize(n_candidate_value);
+    }
+    std::fill_n(node_n_by_candidate.begin(), n_candidate_value, 0);
 
     for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
         const size_t sample_key = sample_keys[j];
@@ -360,7 +366,7 @@ inline void TreeClassification::prepare_candidate_loop_via_index(
     const size_t split_key, const size_t node_key,
     const std::shared_ptr<const Data> data,
     const key_vector & sample_keys
-) {
+) const {
 
     const key_vector & response_keys = data->get_response_index();
     const size_t n_candidate_value =
@@ -368,14 +374,20 @@ inline void TreeClassification::prepare_candidate_loop_via_index(
 
   /* Get counts by candidate (split) value, and by both candidate value and
    * response value. */
-    node_n_by_candidate_and_response.assign(
-        n_candidate_value * n_response_value, 0
-    );
-    node_n_by_candidate.assign(n_candidate_value, 0);
+    {
+        const size_t n_alloc = n_candidate_value * n_response_value;
+        if (node_n_by_candidate_and_response.size() < n_alloc)
+            node_n_by_candidate_and_response.resize(n_alloc);
+        std::fill_n(node_n_by_candidate_and_response.begin(), n_alloc, 0);
+    }
+    if (node_n_by_candidate.size() < n_candidate_value) {
+        node_n_by_candidate.resize(n_candidate_value);
+    }
+    std::fill_n(node_n_by_candidate.begin(), n_candidate_value, 0);
 
     for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
         const size_t sample_key = sample_keys[j];
-        const size_t offset = data->get_index(sample_key, split_key);
+        const size_t offset = data->raw_get_index(sample_key, split_key);
         const size_t response_key = response_keys[sample_key];
 
         ++node_n_by_candidate[offset];

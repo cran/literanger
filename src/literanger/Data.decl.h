@@ -21,7 +21,7 @@
 #include <vector>
 
 /* general literanger headers */
-#include "globals.h"
+#include "literanger/globals.h"
 
 
 namespace literanger {
@@ -60,14 +60,14 @@ struct Data {
          * dataset (or permutation thereof if requested). */
         virtual double get_x(const size_t sample_key,
                              const size_t predictor_key,
-                             const bool permute = false) const = 0;
+                             const bool permute = false) const noexcept = 0;
 
         /** Get the recorded value of the response.
          * @param[in] sample_key The row offset, a.k.a. the observation key.
          * @param[in] column The column offset, a.k.a. the index into the vector
          * of responses for each observation. */
         virtual double get_y(const size_t sample_key,
-                             const size_t column) const = 0;
+                             const size_t column) const noexcept = 0;
 
         /** Get the number of predictors a.k.a. number of columns in data. */
         size_t get_n_col() const;
@@ -134,6 +134,11 @@ struct Data {
         size_t get_index(const size_t sample_key,
                          const size_t predictor_key,
                          const bool permute = false) const;
+
+        /** @copydoc Data::get_index(size_t,size_t,bool) */
+        size_t raw_get_index(const size_t sample_key,
+                             const size_t predictor_key,
+                             const bool permute = false) const noexcept;
 
         /** Get the recorded value of a predictor given the offset into the
          * unique-value (_sorted_) container.

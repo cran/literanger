@@ -38,17 +38,17 @@
 #include <unordered_map>
 
 /* general literanger headers */
-#include "enum_types.h"
-#include "globals.h"
-#include "utility.h"
+#include "literanger/enum_types.h"
+#include "literanger/globals.h"
+#include "literanger/utility.h"
+/* literanger class headers */
+#include "literanger/ForestClassification.h"
+#include "literanger/ForestRegression.h"
+
 /* literanger R package headers */
 #include "cpp11_utility.h"
-
-/* required literanger class headers */
 #include "DataR.h"
 #include "DataSparse.h"
-#include "ForestClassification.h"
-#include "ForestRegression.h"
 
 
 [[cpp11::register]]

@@ -16,7 +16,7 @@
 #define LITERANGER_TREE_DEFN_H
 
 /* class declaration */
-#include "Tree.decl.h"
+#include "literanger/Tree.decl.h"
 
 /* standard library headers */
 #include <algorithm>
@@ -28,11 +28,11 @@
 #include <vector>
 
 /* general literanger headers */
-#include "utility_draw.h"
-#include "utility_math.h"
+#include "literanger/utility_draw.h"
+#include "literanger/utility_math.h"
 /* required literanger class definitions */
-#include "Data.defn.h"
-#include "TreeBase.defn.h"
+#include "literanger/Data.defn.h"
+#include "literanger/TreeBase.defn.h"
 
 
 namespace literanger {
@@ -130,7 +130,7 @@ bool Tree<ImplT>::push_best_split(
 
             if ((*is_ordered)[split_key]) {
                 const size_t n_sample_node = get_n_sample_node(node_key);
-                const double q = n_sample_node / (
+                const double q = (double)n_sample_node / (
                     data->has_predictor_index() ?
                         (double)data->get_n_unique_predictor_value(split_key) :
                         INFINITY

@@ -27,6 +27,7 @@
 #include "literanger/globals.h"
 /* required literanger class declarations */
 #include "literanger/Data.decl.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
@@ -53,8 +54,7 @@ struct Tree : TreeBase {
          * @tparam prediction_type The enumerated type of prediction to perform
          * (e.g. bagged).
          * @tparam result_type The type of data to return; usually a single
-         * value e.g. double.
-        */
+         * value e.g. double. */
         template <PredictionType prediction_type, typename result_type>
         void predict(const std::shared_ptr<const Data> data,
                      const size_t sample_key,
@@ -65,8 +65,7 @@ struct Tree : TreeBase {
 
         /** Forwarding constructor.
          * @param args Arguments forwarded to TreeBase constructor.
-         * @tparam ArgsT The arguments types of a TreeBase constuctor.
-         */
+         * @tparam ArgsT The arguments types of a TreeBase constuctor. */
         template <typename... ArgsT>
         Tree(ArgsT &&... args);
 
@@ -75,13 +74,14 @@ struct Tree : TreeBase {
 
         /** @copydoc TreeBase::push_best_split() */
         bool push_best_split(
-            const size_t node_key, const std::shared_ptr<const Data> data,
+            const size_t node_key,
+            const TrainingParameters & parameters,
+            const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
             const key_vector & split_candidate_keys
-        );
+        ) override;
 
-        /**
-         * Find the best-performing value to split a node on given an ordered
+        /** Find the best-performing value to split a node on given an ordered
          * (numeric or factor) predictor and the extra-random trees rule.
          *
          * Searches a random sample (size `n_random_split`) of candidate values
@@ -89,6 +89,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -100,13 +101,16 @@ struct Tree : TreeBase {
          * @param[in,out] best_split_key The predictor which gave the best
          * decrease in node impurity.
          * @param[in,out] best_value The value to split by that achieved the
-         * best decrease in node impurity.
-         */
+         * best decrease in node impurity. */
         void best_decrease_by_value_extratrees(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_decrease, size_t & best_split_key, double & best_value
+            double & best_decrease,
+            size_t & best_split_key,
+            double & best_value
         );
 
         /** Find the best-performing value to split a node on given an unordered
@@ -118,6 +122,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -129,13 +134,16 @@ struct Tree : TreeBase {
          * @param[in,out] best_split_key The predictor which gave the best
          * decrease in node impurity.
          * @param[in,out] best_value The value to split by that achieved the
-         * best decrease in node impurity.
-         */
+         * best decrease in node impurity. */
         void best_decrease_by_value_extratrees_unordered(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_decrease, size_t & best_split_key, double & best_value
+            double & best_decrease,
+            size_t & best_split_key,
+            double & best_value
         );
 
         /** Find the best-performing value to split a node on given an ordered
@@ -145,6 +153,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -156,14 +165,17 @@ struct Tree : TreeBase {
          * @param[in,out] best_split_key The predictor which gave the best
          * decrease in node impurity.
          * @param[in,out] best_value The value to split by that achieved the
-         * best decrease in node impurity.
-         */
+         * best decrease in node impurity. */
         void best_decrease_by_value_smallq(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_decrease, size_t & best_split_key, double & best_value
-        );
+            double & best_decrease,
+            size_t & best_split_key,
+            double & best_value
+        ) const;
 
         /** Find the best-performing value to split a node on given an ordered
          * (factor or numeric) predictor for a LARGE sample-to-predictor ratio.
@@ -172,6 +184,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -183,14 +196,17 @@ struct Tree : TreeBase {
          * @param[in,out] best_split_key The predictor which gave the best
          * decrease in node impurity.
          * @param[in,out] best_value The value to split by that achieved the
-         * best decrease in node impurity.
-         */
+         * best decrease in node impurity. */
         void best_decrease_by_value_largeq(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_decrease, size_t & best_split_key, double & best_value
-        );
+            double & best_decrease,
+            size_t & best_split_key,
+            double & best_value
+        ) const;
 
         /** Find the best-performing value to split a node on given an unordered
          * (factor) predictor.
@@ -199,6 +215,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -210,14 +227,17 @@ struct Tree : TreeBase {
          * @param[in,out] best_split_key The predictor which gave the best
          * decrease in node impurity.
          * @param[in,out] best_value The value to split by that achieved the
-         * best decrease in node impurity.
-         */
+         * best decrease in node impurity. */
         void best_decrease_by_value_unordered(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_decrease, size_t & best_split_key, double & best_value
-        );
+            double & best_decrease,
+            size_t & best_split_key,
+            double & best_value
+        ) const;
 
          /** Find the best-performing value to split a node on given an ordered
          * (factor or numeric) predictor via the max-stat rule.
@@ -226,6 +246,7 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] parameters Parameters that govern splitting nodes.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
@@ -241,30 +262,34 @@ struct Tree : TreeBase {
          * @returns The p-value of the best statistic for the candidate
          * predictor. */
         double best_statistic_by_value(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const TrainingParameters & parameters,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys,
-            double & best_statistic, size_t & best_split_key,
+            double & best_statistic,
+            size_t & best_split_key,
             double & best_value
-        );
+        ) const;
 
         /** Prepare aggregate data used to search for best node split.
          * @param[in] node_key The node to evaluate.
+         * @param[in] split_rule The rule for identifying the best split.
          * @param[in] data Data to grow (or train) tree with. Contains
          * observations of predictors and the response, the former has
          * predictors across columns and observations by row, and the latter is
          * usually a column vector (or matrix).
          * @param[in] sample_keys The partially-sorted keys in the sample for
-         * this tree.
-         */
+         * this tree. */
         virtual void new_node_aggregates(
             const size_t node_key,
+            const SplitRule split_rule,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
         ) = 0;
 
         /** Clean up any aggregate data for node */
-        virtual void finalise_node_aggregates() = 0;
+        virtual void finalise_node_aggregates() const noexcept = 0;
 
         /** Prepares the loop-invariants needed to evaluate the decrease for
          * each candidate value.
@@ -279,12 +304,14 @@ struct Tree : TreeBase {
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] split_rule The rule for identifying the best split.
          * @param[in] data Data to grow (or train) tree with.
          * @param[in] sample_keys The partially-sorted keys in the sample for
-         * this tree.
-         */
+         * this tree. */
         virtual void prepare_candidate_loop_via_value(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const SplitRule split_rule,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
         ) const = 0;
@@ -296,21 +323,23 @@ struct Tree : TreeBase {
          * Other invariants may also be evaluated. This is called before
          * `best_decrease_by_real_value`. Candidate values are not passed in
          * this interface, instead the candidate values should be acquired from
-         * the data (usually via `data->get_index`).
+         * the data (usually via `data->get_unique_key`).
          *
          * @param[in] split_key The predictor to evaluate.
          * @param[in] node_key The node to evaluate.
+         * @param[in] split_rule The rule for identifying the best split.
          * @param[in] data Data to grow (or train) tree with.
          * @param[in] sample_keys The partially-sorted keys in the sample for
-         * this tree.
-         */
+         * this tree. */
         virtual void prepare_candidate_loop_via_index(
-            const size_t split_key, const size_t node_key,
+            const size_t split_key,
+            const size_t node_key,
+            const SplitRule split_rule,
             const std::shared_ptr<const Data> data,
             const key_vector & sample_keys
         ) const = 0;
 
-        virtual void finalise_candidate_loop();
+        virtual void finalise_candidate_loop() const noexcept;
 
 
 };

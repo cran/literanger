@@ -1,29 +1,16 @@
-/*-------------------------------------------------------------------------------
- * This file is part of 'literanger'. literanger was adapted from the 'ranger'
- * package for R Statistical Software <https://www.r-project.org>. ranger was
- * authored by Marvin N Wright with the GNU General Public License version 3.
- * The adaptation was performed by stephematician in 2023. literanger carries the
- * same license, terms, and permissions as ranger.
+/* This file is part of the C++ core of 'literanger'.
  *
- * literanger is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * literanger's C++ core was adapted from the C++ core of the 'ranger' package
+ * for R Statistical Software <https://www.r-project.org>. The ranger C++ core
+ * is Copyright (c) [2014-2018] [Marvin N. Wright] and distributed with MIT
+ * license. literanger's C++ core is distributed with the same license, terms,
+ * and permissions as ranger's C++ core.
  *
- * literanger is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright [2023] [stephematician]
  *
- * You should have received a copy of the GNU General Public License
- * along with literanger. If not, see <https://www.gnu.org/licenses/>.
- *
- * Written by:
- *
- *   stephematician
- *   stephematician@gmail.com
- *   Australia
- *-------------------------------------------------------------------------------
+ * This software may be modified and distributed under the terms of the MIT
+ * license. You should have received a copy of the MIT license along with
+ * literanger. If not, see <https://opensource.org/license/mit/>.
  */
 #ifndef LITERANGER_DATA_VECTOR_H
 #define LITERANGER_DATA_VECTOR_H
@@ -76,20 +63,23 @@ struct DataVector : public Data {
         double get_y(const size_t sample_key,
                      const size_t column) const noexcept override;
 
+        /** @name Enable cereal for DataVector. */
+        /**@{*/
         template <typename archive_type>
         void serialize(archive_type & archive);
 
         template <typename archive_type>
         void load_and_construct(archive_type & archive,
                                 cereal::construct<DataVector> & construct);
+        /**@}*/
 
 
     private:
 
         /** Vector containing the column-major values of the predictors */
-        std::vector<double> X;
+        dbl_vector X;
         /** Vector containing the response */
-        std::vector<double> y;
+        dbl_vector y;
 
 
 };

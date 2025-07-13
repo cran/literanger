@@ -37,30 +37,27 @@
 #include "literanger/Data.defn.h"
 #include "literanger/Forest.defn.h"
 #include "literanger/TreeRegression.defn.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
 
-inline ForestRegression::ForestRegression(
-    const double min_prop,
-    const std::vector<TreeParameters> tree_parameters, const bool save_memory
-) :
-    Forest(TREE_REGRESSION, tree_parameters, save_memory), min_prop(min_prop)
+inline ForestRegression::ForestRegression(const bool save_memory) :
+    Forest(save_memory)
 { }
 
 inline ForestRegression::ForestRegression(
-    const double min_prop,
-    const std::vector<TreeParameters> tree_parameters, const bool save_memory,
+    const bool save_memory, const size_t n_predictor,
+    const bool_vector_ptr is_ordered,
     std::vector<std::unique_ptr<TreeBase>> && trees
 ) :
-    Forest(TREE_REGRESSION, tree_parameters, save_memory, std::move(trees)),
-    min_prop(min_prop)
+    Forest(save_memory, n_predictor, is_ordered, std::move(trees))
 { }
 
 
 template <typename archive_type>
 void ForestRegression::serialize(archive_type & archive) {
-    archive(cereal::base_class<ForestBase>(this), min_prop);
+    archive(cereal::base_class<ForestBase>(this));
 }
 
 
@@ -69,38 +66,36 @@ void ForestRegression::load_and_construct(
     archive_type & archive,
     cereal::construct<ForestRegression> & construct
 ) {
-    TreeType tree_type;
-    std::vector<TreeParameters> tree_parameters;
     bool save_memory;
+    size_t n_predictor;
+    bool_vector_ptr is_ordered;
     std::vector<std::unique_ptr<TreeBase>> trees;
-    double min_prop;
 
-    archive(tree_type, tree_parameters, save_memory, trees);
-    archive(min_prop);
+    archive(save_memory, n_predictor, is_ordered, trees);
 
-    if (tree_type != TREE_REGRESSION)
-        throw std::runtime_error("foo");
-
-    construct(min_prop, tree_parameters, save_memory, std::move(trees));
+    construct(save_memory, n_predictor, is_ordered, std::move(trees));
 }
 
 
-inline void ForestRegression::plant_tree(const std::shared_ptr<const Data> data,
-                                         const TreeParameters & parameters) {
-    trees.emplace_back(new TreeRegression(
-      /* Regression-specific arguments */
-        min_prop,
-      /* Forwarded arguments */
-        parameters, save_memory)
+inline void ForestRegression::plant_tree(
+    const bool save_memory, const size_t n_predictor,
+    const bool_vector_ptr is_ordered
+) {
+    trees.emplace_back(
+        new TreeRegression(
+          /* Forwarded arguments */
+            save_memory, n_predictor, is_ordered
+        )
     );
 }
 
 
 inline void ForestRegression::new_growth(
+    const std::vector<TrainingParameters> & forest_parameters,
     const std::shared_ptr<const Data> data
 ) {
     bool any_beta = false;
-    for (const auto & parameters : tree_parameters) {
+    for (const auto & parameters : forest_parameters) {
         any_beta |= parameters.split_rule == BETA;
     }
     if (any_beta) {
@@ -117,7 +112,7 @@ inline void ForestRegression::new_growth(
 
 inline void ForestRegression::finalise_growth(
     const std::shared_ptr<const Data> data
-) { /* if (!save_memory) data->finalise_predictor_index(); */ }
+) const noexcept { /* if (!save_memory) data->finalise_predictor_index(); */ }
 
 
 inline void ForestRegression::new_oob_error(
@@ -127,13 +122,13 @@ inline void ForestRegression::new_oob_error(
 }
 
 
-inline double ForestRegression::finalise_oob_error(
+inline double ForestRegression::compute_oob_error(
     const std::shared_ptr<const Data> data
 ) {
 
   /* for each observation; count the oob predictions by response */
     const size_t n_sample = data->get_n_row();
-    std::vector<double> sums(n_sample);
+    dbl_vector sums(n_sample);
 
     std::transform(
         oob_predictions.cbegin(), oob_predictions.cend(),
@@ -161,6 +156,12 @@ inline double ForestRegression::finalise_oob_error(
 }
 
 
+inline void ForestRegression::finalise_oob_error() const noexcept {
+    oob_predictions.clear();
+    oob_predictions.shrink_to_fit(); // only if save memory?
+}
+
+
 inline void ForestRegression::oob_one_tree(
     const size_t tree_key,
     const std::shared_ptr<const Data> data,
@@ -177,7 +178,7 @@ inline void ForestRegression::oob_one_tree(
     for (auto key : oob_keys) {
         std::back_insert_iterator<dbl_vector> oob_inserter =
             std::back_inserter(oob_values);
-        tree_impl.template predict<BAGGED>(data, key, oob_inserter);
+        tree_impl.predict<BAGGED>(data, key, oob_inserter);
     }
 
     {
@@ -193,6 +194,7 @@ template <>
 inline void ForestRegression::new_predictions<BAGGED>(
     const std::shared_ptr<const Data> data, const size_t n_thread
 ) {
+    const size_t n_tree = size();
     const size_t n_sample = data->get_n_row();
     predictions_to_bag.assign(n_sample, dbl_vector());
     for (auto & each_sample : predictions_to_bag) each_sample.reserve(n_tree);
@@ -204,7 +206,7 @@ template <PredictionType prediction_type, typename result_type,
           enable_if_bagged<prediction_type>>
 void ForestRegression::finalise_predictions(
     result_type & result
-) {
+) const noexcept {
     result = aggregate_predictions;
 
     predictions_to_bag.clear();
@@ -264,6 +266,7 @@ inline void ForestRegression::new_predictions<INBAG>(
     const std::shared_ptr<const Data> data, const size_t n_thread
 ) {
 
+    const size_t n_tree = size();
     const size_t n_sample = data->get_n_row();
     prediction_keys_by_tree.assign(n_tree, key_vector());
 
@@ -283,7 +286,7 @@ template <PredictionType prediction_type, typename result_type,
           enable_if_inbag<prediction_type>>
 void ForestRegression::finalise_predictions(
     result_type & result
-) {
+) const noexcept {
     result = aggregate_predictions;
 
     prediction_keys_by_tree.clear();
@@ -339,6 +342,7 @@ template <>
 inline void ForestRegression::new_predictions<NODES>(
     const std::shared_ptr<const Data> data, const size_t n_thread
 ) {
+    const size_t n_tree = size();
     const size_t n_sample = data->get_n_row();
     prediction_nodes.assign(n_sample, key_vector());
     for (auto & each_sample : prediction_nodes) each_sample.assign(n_tree, 0);
@@ -349,7 +353,7 @@ template <PredictionType prediction_type, typename result_type,
           enable_if_nodes<prediction_type>>
 void ForestRegression::finalise_predictions(
     result_type & result
-) {
+) const noexcept {
     result = prediction_nodes;
     prediction_nodes.clear();
     prediction_nodes.shrink_to_fit();

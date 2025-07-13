@@ -8,6 +8,10 @@ cpp11_deserialize <- function(object, verbose) {
   .Call(`_literanger_cpp11_deserialize`, object, verbose)
 }
 
+cpp11_merge <- function(x, y, x_predictors, y_predictors, save_memory, verbose) {
+  .Call(`_literanger_cpp11_merge`, x, y, x_predictors, y_predictors, save_memory, verbose)
+}
+
 cpp11_predict <- function(object, x, sparse_x, prediction_type, seed, n_thread, verbose) {
   .Call(`_literanger_cpp11_predict`, object, x, sparse_x, prediction_type, seed, n_thread, verbose)
 }

@@ -29,20 +29,35 @@
 namespace literanger {
 
 /** Enumerated tree types. */
-enum TreeType { TREE_CLASSIFICATION, TREE_REGRESSION };
+enum TreeType { TREE_CLASSIFICATION = 0, TREE_REGRESSION = 1 };
 
 
 /** Enumerated rules for selecting a predictor to split on. */
-enum SplitRule { LOGRANK, MAXSTAT, EXTRATREES, BETA, HELLINGER };
+enum SplitRule { LOGRANK = 0, MAXSTAT = 1, EXTRATREES = 2, BETA = 3, HELLINGER = 4 };
+
+template <SplitRule split_rule>
+using enable_if_logrank =
+    typename std::enable_if<split_rule == LOGRANK, std::nullptr_t>::type;
+
+template <SplitRule split_rule>
+using enable_if_beta =
+    typename std::enable_if<split_rule == BETA, std::nullptr_t>::type;
+
+template <SplitRule split_rule>
+using enable_if_hellinger =
+    typename std::enable_if<split_rule == HELLINGER, std::nullptr_t>::type;
+
+template <SplitRule split_rule>
+using enable_if_maxstat =
+    typename std::enable_if<split_rule == MAXSTAT, std::nullptr_t>::type;
 
 
 /** Enumerated types of prediction. */
 enum PredictionType {
-    BAGGED, /**< Each predicted value is bootstrap-aggregated over all trees */
-    INBAG,  /**< Each predicted value comes from one randomly-sampled tree */
-    NODES   /**< Return terminal node-id for every tree */
+    BAGGED = 0, /**< Each predicted value is bootstrap-aggregated over trees */
+    INBAG = 1,  /**< Each predicted value comes from one randomly-drawn tree */
+    NODES = 2   /**< Return terminal node-id for every tree */
 };
-
 
 template <PredictionType prediction_type>
 using enable_if_bagged =
@@ -61,23 +76,26 @@ using enable_if_nodes =
 
 /** Convert a string to enumerated tree type.
  * @param x "classification" or "regression" only supported. */
+/*{@*/
 TreeType as_tree_type(std::string x);
+std::string as_string(TreeType x);
+/*@}*/
 /** Convert a string to enumerated splitting rule.
  * @param x e.g. "gini", "variance", etc. */
+/*@{*/
 SplitRule as_split_rule(std::string x);
+std::string as_string(SplitRule x);
+/*@}*/
 /** Convert a string to enumerated prediction type.
  * @param x "bagged", "inbag" or "nodes". */
 PredictionType as_prediction_type(std::string x);
-
-std::string as_string(TreeType x);
-std::string as_string(SplitRule x);
 
 
 /* Definitions */
 
 inline TreeType as_tree_type(std::string x) {
 
-    static std::unordered_map<std::string,TreeType> table = {
+    static const std::unordered_map<std::string,TreeType> table = {
         { "classification", TreeType::TREE_CLASSIFICATION },
         { "regression", TreeType::TREE_REGRESSION }
     };
@@ -94,7 +112,7 @@ inline TreeType as_tree_type(std::string x) {
 
 inline SplitRule as_split_rule(std::string x) {
 
-    static std::unordered_map<std::string,SplitRule> table = {
+    static const std::unordered_map<std::string,SplitRule> table = {
         { "gini", SplitRule::LOGRANK },
         { "variance", SplitRule::LOGRANK },
         { "maxstat", SplitRule::MAXSTAT },
@@ -115,7 +133,7 @@ inline SplitRule as_split_rule(std::string x) {
 
 inline PredictionType as_prediction_type(std::string x) {
 
-    static std::unordered_map<std::string,PredictionType> table = {
+    static const std::unordered_map<std::string,PredictionType> table = {
         {"bagged", PredictionType::BAGGED},
         {"inbag", PredictionType::INBAG},
         {"nodes", PredictionType::NODES}
@@ -133,7 +151,7 @@ inline PredictionType as_prediction_type(std::string x) {
 
 inline std::string as_string(TreeType x) {
 
-    static std::unordered_map<TreeType, std::string> table = {
+    static const std::unordered_map<TreeType, std::string> table = {
         { TreeType::TREE_CLASSIFICATION, "classification" },
         { TreeType::TREE_REGRESSION, "regression" }
     };
@@ -145,7 +163,7 @@ inline std::string as_string(TreeType x) {
 
 inline std::string as_string(SplitRule x) {
 
-    static std::unordered_map<SplitRule,std::string> table = {
+    static const std::unordered_map<SplitRule,std::string> table = {
         {  SplitRule::LOGRANK, "gini" }, /* also 'variance' */
         {  SplitRule::MAXSTAT, "maxstat" },
         {  SplitRule::EXTRATREES, "extratrees" },

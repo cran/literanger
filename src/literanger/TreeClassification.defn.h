@@ -38,77 +38,64 @@
 /* required literanger class definitions */
 #include "literanger/Data.defn.h"
 #include "literanger/Tree.defn.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
 
 inline TreeClassification::TreeClassification(
-    const dbl_vector_ptr response_weights,
-    const TreeParameters & parameters,
-    const bool save_memory
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered
 ) :
-    Tree(parameters, save_memory), response_weights(response_weights)
-{
-
-    switch (split_rule) {
-    case HELLINGER: {
-      /* Hellinger rule: applied only to binary classification  */
-        if (n_response_value != 2)
-            throw std::runtime_error("Cannot use Hellinger metric on "
-                "non-binary data.");
-    } break;
-    case LOGRANK: case EXTRATREES: {
-    } break;
-    case MAXSTAT: case BETA: {
-        throw std::invalid_argument("Unsupported split metric for "
-            "classification.");
-    } break;
-    default: {
-        throw std::invalid_argument("Invalid split metric.");
-    } break; }
-
-}
+    Tree(save_memory, n_predictor, is_ordered)
+{ }
 
 inline TreeClassification::TreeClassification(
-    const dbl_vector_ptr response_weights,
-    std::unordered_map<size_t,key_vector> && leaf_keys,
-    std::unordered_map<size_t,double> && leaf_most_frequent,
-    const TreeParameters & parameters,
-    const bool save_memory,
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered,
     key_vector && split_keys, dbl_vector && split_values,
-    std::pair<key_vector,key_vector> && child_node_keys
+    std::pair<key_vector,key_vector> && child_node_keys,
+    dbl_vector && response_weights,
+    std::unordered_map<size_t,key_vector> && leaf_keys,
+    std::unordered_map<size_t,size_t> && leaf_most_frequent
 ) :
-    Tree(
-        parameters, save_memory,
-        std::move(split_keys), std::move(split_values),
-        std::move(child_node_keys)
-    ), response_weights(response_weights),
+    Tree(save_memory, n_predictor, is_ordered, std::move(split_keys),
+         std::move(split_values), std::move(child_node_keys)),
+    response_weights(std::move(response_weights)),
     leaf_keys(std::move(leaf_keys)),
     leaf_most_frequent(std::move(leaf_most_frequent))
-{
+{ }
 
-    switch (split_rule) {
-    case HELLINGER: {
-      /* Hellinger rule: applied only to binary classification  */
-        if (n_response_value != 2)
-            throw std::runtime_error("Cannot use Hellinger metric on "
-                "non-binary data.");
-    } break;
-    case LOGRANK: case EXTRATREES: {
-    } break;
-    case MAXSTAT: case BETA: {
-        throw std::invalid_argument("Unsupported split metric for "
-            "classification.");
-    } break;
-    default: {
-        throw std::invalid_argument("Invalid split metric.");
-    } break; }
-
-}
-
+inline TreeClassification::TreeClassification(
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered,
+    const TreeClassification & tree
+) :
+    Tree(save_memory, n_predictor, is_ordered, tree),
+    response_weights(tree.response_weights),
+    leaf_keys(tree.leaf_keys),
+    leaf_most_frequent(tree.leaf_most_frequent)
+{ }
 
 inline const std::unordered_map<size_t,key_vector> &
-TreeClassification::get_leaf_keys() const { return leaf_keys; }
+TreeClassification::get_leaf_keys() const noexcept { return leaf_keys; }
+
+
+inline void TreeClassification::transform_response_keys(
+    std::unordered_map<size_t,size_t> key_map
+) {
+  /* update the response weight (order) */
+    const dbl_vector existing_weights = response_weights;
+    for (auto key : key_map)
+        response_weights[key.second] = existing_weights[key.first];
+  /* update uinbag key values */
+    for (auto & leaf : leaf_keys) {
+        for (auto & key : leaf.second) key = key_map[key];
+    }
+  /* update bagged predictions */
+    for (auto & leaf : leaf_most_frequent) leaf.second = key_map[leaf.second];
+
+}
 
 
 template <PredictionType prediction_type, typename result_type,
@@ -126,11 +113,11 @@ void TreeClassification::predict_from_inbag(
 
     if (!have_prediction) {
 
-        std::unordered_map<double,double> counts;
-        counts.reserve(n_response_value);
+        std::unordered_map<size_t,double> counts;
+        counts.reserve(n_response_key);
         // TODO: check index here
         for (const size_t & response_key : leaf_keys.at(node_key))
-            counts[response_key] += (*response_weights)[response_key];
+            counts[response_key] += response_weights[response_key];
         if (counts.empty()) return;
         leaf_most_frequent[node_key] = most_frequent_value(counts, gen);
         result = leaf_most_frequent[node_key];
@@ -150,15 +137,13 @@ void TreeClassification::predict_from_inbag(
     std::uniform_int_distribution<> U_rng(0, leaf_keys.at(node_key).size() - 1);
     const size_t bag_key = U_rng(gen);
     result = leaf_keys.at(node_key)[bag_key];
-
 }
 
 
 template <PredictionType prediction_type, typename result_type,
           enable_if_nodes<prediction_type>>
 void TreeClassification::predict_from_inbag(
-    const size_t node_key,
-    result_type & result
+    const size_t node_key, result_type & result
 ) {
     result = node_key;
 }
@@ -166,42 +151,45 @@ void TreeClassification::predict_from_inbag(
 
 template <typename archive_type>
 void TreeClassification::serialize(archive_type & archive) {
-    archive(cereal::base_class<TreeBase>(this), response_weights,
-            leaf_keys, leaf_most_frequent);
+    archive(cereal::base_class<TreeBase>(this),
+            response_weights, leaf_keys, leaf_most_frequent);
 }
 
 
 template <typename archive_type>
 void TreeClassification::load_and_construct(
-    archive_type & archive,
-    cereal::construct<TreeClassification> & construct
+    archive_type & archive, cereal::construct<TreeClassification> & construct
 ) {
-    TreeParameters tree_parameters; // = *this;
+    /* base-class constructor arguments */
     bool save_memory;
+    size_t n_predictor;
+    bool_vector_ptr is_ordered;
     key_vector split_keys;
     dbl_vector split_values;
     std::pair<key_vector,key_vector> child_node_keys;
-    dbl_vector_ptr response_weights;
+    /* classification-specific constructor arguments */
+    dbl_vector response_weights;
     std::unordered_map<size_t,key_vector> leaf_keys;
-    std::unordered_map<size_t,double> leaf_most_frequent;
+    std::unordered_map<size_t,size_t> leaf_most_frequent;
 
-    archive(tree_parameters, save_memory,
+    archive(save_memory, n_predictor, is_ordered,
             split_keys, split_values, child_node_keys);
     archive(response_weights, leaf_keys, leaf_most_frequent);
 
     construct(
-        response_weights, std::move(leaf_keys), std::move(leaf_most_frequent),
-        tree_parameters, save_memory,
+        save_memory, n_predictor, is_ordered,
         std::move(split_keys),std::move(split_values),
-        std::move(child_node_keys)
+        std::move(child_node_keys),
+        std::move(response_weights),
+        std::move(leaf_keys), std::move(leaf_most_frequent)
     );
 }
 
 
 inline void TreeClassification::resample_response_wise_impl(
-    const std::shared_ptr<const Data> data,
-    key_vector & sample_keys,
-    count_vector & inbag_counts
+    const std::shared_ptr<const Data> data, const bool replace,
+    const cdbl_vector_ptr sample_fraction,
+    key_vector & sample_keys, count_vector & inbag_counts
 ) {
 
     using const_iterator = key_vector::const_iterator;
@@ -268,22 +256,57 @@ inline void TreeClassification::resample_response_wise_impl(
 
 
 inline void TreeClassification::new_growth(
+    const TrainingParameters & parameters,
     const std::shared_ptr<const Data> data
 ) {
     const size_t n_sample = data->get_n_row();
+    const size_t n_response_key_data = data->get_response_values().size();
+
+    switch (parameters.split_rule) {
+    case HELLINGER: {
+      /* Hellinger rule: applied only to binary classification  */
+        if (n_response_key_data != 2)
+            throw std::runtime_error("Cannot use Hellinger metric on "
+                "non-binary data.");
+    } break;
+    case LOGRANK: case EXTRATREES: {
+    } break;
+    case MAXSTAT: case BETA: {
+        throw std::invalid_argument("Unsupported split metric for "
+            "classification.");
+    } break;
+    default: {
+        throw std::invalid_argument("Invalid split metric.");
+    } break; }
+
+    if (parameters.response_weights->size() &&
+        n_response_key_data != parameters.response_weights->size())
+        throw std::invalid_argument("Number of response weights does not match "
+            "number of observed response values");
+
+    n_response_key = n_response_key_data;
+    response_weights = (parameters.response_weights->size() != 0 ?
+                            *parameters.response_weights :
+                            dbl_vector(n_response_key, 1.0));
+
+  /* Initialise vector for response count */
+    node_n_by_response.resize(n_response_key);
+    std::fill_n(node_n_by_response.begin(), n_response_key, 0);
+
     leaf_keys.clear();
     leaf_most_frequent.clear();
   /* Guess for maximum number of leaf nodes */
-    leaf_keys.reserve(std::ceil(n_sample / (double)min_split_n_sample));
+    leaf_keys.reserve(
+        std::ceil(n_sample / (double)parameters.min_split_n_sample)
+    );
     leaf_most_frequent.reserve(
-        std::ceil(n_sample / (double)min_split_n_sample)
+        std::ceil(n_sample / (double)parameters.min_split_n_sample)
     );
 }
 
 
 inline void TreeClassification::add_terminal_node(
-    const size_t node_key,
-    const std::shared_ptr<const Data> data,
+    const size_t node_key, const std::shared_ptr<const Data> data,
     const key_vector & sample_keys
 ) {
     const size_t start = start_pos[node_key];
@@ -300,17 +323,15 @@ inline void TreeClassification::add_terminal_node(
 
 inline bool TreeClassification::compare_response(
     const std::shared_ptr<const Data> data,
-    const size_t lhs_key,
-    const size_t rhs_key
-) const {
+    const size_t lhs_key, const size_t rhs_key
+) const noexcept {
     return data->get_y(lhs_key, 0) == data->get_y(rhs_key, 0);
 }
 
 
 inline void TreeClassification::new_node_aggregates(
-    const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys
+    const size_t node_key, const SplitRule split_rule,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys
 ) {
     const key_vector & response_keys = data->get_response_index();
     std::fill(node_n_by_response.begin(), node_n_by_response.end(), 0);
@@ -323,20 +344,19 @@ inline void TreeClassification::new_node_aggregates(
 }
 
 
-inline void TreeClassification::finalise_node_aggregates() { }
+inline void TreeClassification::finalise_node_aggregates() const noexcept { }
 
 
 inline void TreeClassification::prepare_candidate_loop_via_value(
-    const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys
+    const size_t split_key, const size_t node_key, const SplitRule split_rule,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys
 ) const {
 
     const key_vector & response_keys = data->get_response_index();
     const size_t n_candidate_value = candidate_values.size();
 
     {
-        const size_t n_alloc = n_candidate_value * n_response_value;
+        const size_t n_alloc = n_candidate_value * n_response_key;
         if (node_n_by_candidate_and_response.size() < n_alloc)
             node_n_by_candidate_and_response.resize(n_alloc);
         std::fill_n(node_n_by_candidate_and_response.begin(), n_alloc, 0);
@@ -355,7 +375,7 @@ inline void TreeClassification::prepare_candidate_loop_via_value(
                              data->get_x(sample_key, split_key))
         );
         ++node_n_by_candidate[offset];
-        ++node_n_by_candidate_and_response[offset * n_response_value +
+        ++node_n_by_candidate_and_response[offset * n_response_key +
                                                response_key];
     }
 
@@ -363,19 +383,18 @@ inline void TreeClassification::prepare_candidate_loop_via_value(
 
 
 inline void TreeClassification::prepare_candidate_loop_via_index(
-    const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys
+    const size_t split_key, const size_t node_key, const SplitRule split_rule,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys
 ) const {
 
     const key_vector & response_keys = data->get_response_index();
     const size_t n_candidate_value =
-        data->get_n_unique_predictor_value(split_key);
+        data->get_n_unique_value(split_key);
 
   /* Get counts by candidate (split) value, and by both candidate value and
    * response value. */
     {
-        const size_t n_alloc = n_candidate_value * n_response_value;
+        const size_t n_alloc = n_candidate_value * n_response_key;
         if (node_n_by_candidate_and_response.size() < n_alloc)
             node_n_by_candidate_and_response.resize(n_alloc);
         std::fill_n(node_n_by_candidate_and_response.begin(), n_alloc, 0);
@@ -385,20 +404,22 @@ inline void TreeClassification::prepare_candidate_loop_via_index(
     }
     std::fill_n(node_n_by_candidate.begin(), n_candidate_value, 0);
 
+
+
     for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
         const size_t sample_key = sample_keys[j];
-        const size_t offset = data->raw_get_index(sample_key, split_key);
+        const size_t offset = data->rawget_unique_key(sample_key, split_key);
         const size_t response_key = response_keys[sample_key];
 
         ++node_n_by_candidate[offset];
-        ++node_n_by_candidate_and_response[offset * n_response_value +
+        ++node_n_by_candidate_and_response[offset * n_response_key +
                                                response_key];
     }
 
 }
 
 
-inline void TreeClassification::finalise_candidate_loop() {
+inline void TreeClassification::finalise_candidate_loop() const noexcept {
 
     Tree::finalise_candidate_loop();
 
@@ -411,16 +432,16 @@ inline void TreeClassification::finalise_candidate_loop() {
 }
 
 
-template <typename UpdateT>
+template <SplitRule split_rule, typename UpdateT>
 void TreeClassification::best_decrease_by_real_value(
-    const size_t split_key,
-    const size_t n_sample_node, const size_t n_candidate_value,
+    const size_t split_key, const size_t n_sample_node,
+    const size_t n_candidate_value, const size_t min_leaf_n_sample,
     double & best_decrease, size_t & best_split_key, UpdateT update_best_value
 ) const {
 
   /* NOTE: Pre-condition: n_candidate_value > 1 */
     size_t n_lhs = 0;
-    count_vector node_n_by_response_lhs(n_response_value, 0);
+    count_vector node_n_by_response_lhs(n_response_key, 0);
 
     for (size_t j = 0; j != n_candidate_value - 1; ++j) {
 
@@ -429,17 +450,18 @@ void TreeClassification::best_decrease_by_real_value(
         n_lhs += node_n_by_candidate[j];
       /* Update the count, by response value, that lie to the left of the
        * current candidate (split) value. */
-        for (size_t k = 0; k != n_response_value; ++k)
+        for (size_t k = 0; k != n_response_key; ++k)
             node_n_by_response_lhs[k] +=
-                node_n_by_candidate_and_response[j * n_response_value + k];
+                node_n_by_candidate_and_response[j * n_response_key + k];
 
         if (n_lhs < min_leaf_n_sample) continue;
 
         const size_t n_rhs = n_sample_node - n_lhs;
         if (n_rhs < min_leaf_n_sample) break;
 
-        const double decrease = evaluate_decrease(node_n_by_response_lhs,
-                                                  n_lhs, n_rhs);
+        const double decrease = evaluate_decrease<split_rule>(
+            node_n_by_response_lhs, n_lhs, n_rhs
+        );
 
      /* If the decrease in node impurity has improved - then we update the best
       * split for the node. */
@@ -454,13 +476,13 @@ void TreeClassification::best_decrease_by_real_value(
 }
 
 
-template <typename CallableT>
+template <SplitRule split_rule, typename CallableT>
 void TreeClassification::best_decrease_by_partition(
     const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
-    const size_t n_sample_node,
-    const size_t n_partition, CallableT to_partition_key,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
+    const size_t n_sample_node, const size_t n_partition,
+    const size_t min_leaf_n_sample,
+    CallableT to_partition_key,
     double & best_decrease, size_t & best_split_key, double & best_value
 ) const {
 
@@ -472,7 +494,7 @@ void TreeClassification::best_decrease_by_partition(
       /* Get the bit-encoded partition value */
         ull_bitenc partition_key = to_partition_key(j);
 
-        count_vector node_n_by_response_lhs(n_response_value, 0);
+        count_vector node_n_by_response_lhs(n_response_key, 0);
         size_t n_lhs = 0;
 
         for (size_t k = start_pos[node_key]; k != end_pos[node_key]; ++k) {
@@ -491,11 +513,12 @@ void TreeClassification::best_decrease_by_partition(
         const size_t n_rhs = n_sample_node - n_lhs;
         if (n_rhs < min_leaf_n_sample) continue;
 
-        const double decrease = evaluate_decrease(node_n_by_response_lhs,
-                                                  n_lhs, n_rhs);
+        const double decrease = evaluate_decrease<split_rule>(
+            node_n_by_response_lhs, n_lhs, n_rhs
+        );
 
         if (decrease > best_decrease) {
-            (size_t &)best_value = partition_key.to_ullong();
+            (unsigned long long &)best_value = partition_key.to_ullong();
             best_split_key = split_key;
             best_decrease = decrease;
         }
@@ -508,51 +531,56 @@ void TreeClassification::best_decrease_by_partition(
 template <typename UpdateT>
 void TreeClassification::best_statistic_by_real_value(
     const size_t n_sample_node, const size_t n_candidate_value,
+    const size_t min_leaf_n_sample, const double min_prop,
     double & this_decrease, UpdateT update_this_value, double & this_p_value
-) { /* NOTE:: Pre-condition - split rule is valid */ }
+) const { /* NOTE:: Pre-condition - split rule is valid */ }
 
 
-inline double TreeClassification::evaluate_decrease(
+template <>
+inline double TreeClassification::evaluate_decrease<LOGRANK>(
     const count_vector & node_n_by_response_lhs,
     const size_t n_lhs, const size_t n_rhs
 ) const {
-
-  /* NOTE:: Pre-condition - split rule is valid */
-
-    switch (split_rule) {
-    case HELLINGER: {
-      /* TPR is the number of 1s on the right divided by the true number
-       * of ones; FPR is the number of 0s on the right divided by the
-       * true number of zeros */
-        const double tpr = (node_n_by_response[1] - node_n_by_response_lhs[1]) /
-            (double)node_n_by_response[1];
-        const double fpr = (node_n_by_response[0] - node_n_by_response_lhs[0]) /
-            (double)node_n_by_response[0];
-
-      /* Decrease of impurity */
-        const double a1 = sqrt(tpr) - sqrt(fpr);
-        const double a2 = sqrt(1.0 - tpr) - sqrt(1.0 - fpr);
-        return sqrt(a1 * a1 + a2 * a2);
-    } break;
-    case LOGRANK: case EXTRATREES: {
-      /* Use (weighted) sum of square count to measure node impurity. */
-        double sum_lhs_sq = 0.0;
-        double sum_rhs_sq = 0.0;
-        for (size_t k = 0; k != n_response_value; ++k) {
-            const double node_n_by_response_rhs_k =
-                node_n_by_response[k] - node_n_by_response_lhs[k];
-            sum_lhs_sq += (*response_weights)[k] *
-                node_n_by_response_lhs[k] * node_n_by_response_lhs[k];
-            sum_rhs_sq += (*response_weights)[k] *
-                node_n_by_response_rhs_k * node_n_by_response_rhs_k;
-        }
-        return sum_rhs_sq / n_rhs + sum_lhs_sq / n_lhs;
-    } break;
-    default: break; }
-
-    return -INFINITY;
-
+  /* Use (weighted) sum of square count to measure node impurity. */
+    double sum_lhs_sq = 0.0;
+    double sum_rhs_sq = 0.0;
+    for (size_t k = 0; k != n_response_key; ++k) {
+        const double node_n_by_response_rhs_k =
+            node_n_by_response[k] - node_n_by_response_lhs[k];
+        sum_lhs_sq += response_weights[k] *
+            node_n_by_response_lhs[k] * node_n_by_response_lhs[k];
+        sum_rhs_sq += response_weights[k] *
+            node_n_by_response_rhs_k * node_n_by_response_rhs_k;
+    }
+    return sum_rhs_sq / n_rhs + sum_lhs_sq / n_lhs;
 }
+
+
+template <>
+inline double TreeClassification::evaluate_decrease<HELLINGER>(
+    const count_vector & node_n_by_response_lhs,
+    const size_t n_lhs, const size_t n_rhs
+) const {
+   /* TPR is the number of 1s on the right divided by the true number
+    * of ones; FPR is the number of 0s on the right divided by the
+    * true number of zeros */
+     const double tpr = (node_n_by_response[1] - node_n_by_response_lhs[1]) /
+         (double)node_n_by_response[1];
+     const double fpr = (node_n_by_response[0] - node_n_by_response_lhs[0]) /
+         (double)node_n_by_response[0];
+
+   /* Decrease of impurity */
+     const double a1 = std::sqrt(tpr) - std::sqrt(fpr);
+     const double a2 = std::sqrt(1.0 - tpr) - std::sqrt(1.0 - fpr);
+     return std::sqrt(a1 * a1 + a2 * a2);
+}
+
+
+template <SplitRule split_rule>
+inline double TreeClassification::evaluate_decrease(
+    const count_vector & node_n_by_response_lhs,
+    const size_t n_lhs, const size_t n_rhs
+) const { return -INFINITY; }
 
 
 } /* namespace literanger */

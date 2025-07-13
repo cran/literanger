@@ -44,6 +44,7 @@
 /* literanger class headers */
 #include "literanger/ForestClassification.h"
 #include "literanger/ForestRegression.h"
+#include "literanger/TrainingParameters.h"
 
 /* literanger R package headers */
 #include "cpp11_utility.h"
@@ -83,21 +84,21 @@ cpp11::list cpp11_train(
 
   /* Convert the parameters for the forest to standard library types and set
    * default values. */
-    const auto std_predictor_names = as_vector<std::string>(predictor_names);
-    const auto std_names_of_unordered = as_vector<std::string>(
+    const auto predictor_names_std = as_vector<std::string>(predictor_names);
+    const auto names_of_unordered_std = as_vector<std::string>(
         names_of_unordered
     );
-    const auto n_predictor = std_predictor_names.size();
+    const auto n_predictor = predictor_names_std.size();
 
-    const auto std_sample_fraction = as_vector_ptr<double>(
+    const auto sample_fraction_std = as_vector_ptr<double>(
         sample_fraction
     );
 
     set_n_try(n_try, predictor_names);
-    const auto std_names_of_always_draw = as_vector<std::string>(
+    const auto names_of_always_draw_std = as_vector<std::string>(
         names_of_always_draw
     );
-    const auto std_draw_predictor_weights =
+    const auto draw_predictor_weights_std =
         as_nested_ptr<double,cpp11::doubles>(draw_predictor_weights);
 
     const SplitRule enum_split_rule(as_split_rule(split_rule));
@@ -107,37 +108,40 @@ cpp11::list cpp11_train(
     set_min_split_n_sample(min_split_n_sample, enum_tree_type);
     set_min_leaf_n_sample(min_leaf_n_sample, enum_tree_type);
 
+    const auto response_weights_std = as_vector_ptr<double>(response_weights);
+
   /* Construct the container for the parameters of each tree in the forest. */
-    std::vector<TreeParameters> tree_parameters;
-    const auto is_ordered = make_is_ordered(std_predictor_names,
-                                            std_names_of_unordered);
+    std::vector<TrainingParameters> forest_parameters;
+    const auto is_ordered = make_is_ordered(predictor_names_std,
+                                            names_of_unordered_std);
     const auto draw_always_predictor_keys = make_draw_always_predictor_keys(
-        std_predictor_names, std_names_of_always_draw, n_try
+        predictor_names_std, names_of_always_draw_std, n_try
     );
 
-    { const auto empty = std::shared_ptr<dbl_vector>(new dbl_vector());
+    {
+        const auto empty = std::shared_ptr<dbl_vector>(new dbl_vector());
 
         for (size_t j = 0; j != n_tree; ++j) {
             std::shared_ptr<dbl_vector> draw_predictor_weights_j;
-            switch (std_draw_predictor_weights.size()) {
+            switch (draw_predictor_weights_std.size()) {
             case 0: { draw_predictor_weights_j = empty;
             } break;
-            case 1: { draw_predictor_weights_j = std_draw_predictor_weights[0];
+            case 1: { draw_predictor_weights_j = draw_predictor_weights_std[0];
             } break;
-            default: { draw_predictor_weights_j = std_draw_predictor_weights[j];
+            default: { draw_predictor_weights_j = draw_predictor_weights_std[j];
             }
             }
             set_draw_predictor_weights(
                 draw_predictor_weights_j, n_predictor, n_try,
                 *draw_always_predictor_keys
             );
-            tree_parameters.emplace_back(
-                n_predictor,
-                is_ordered,
-                replace, std_sample_fraction,
+            forest_parameters.emplace_back(
+                replace, sample_fraction_std,
                 n_try, draw_always_predictor_keys, draw_predictor_weights_j,
+                response_weights_std,
                 enum_split_rule, min_metric_decrease, max_depth,
-                min_split_n_sample, min_leaf_n_sample, n_random_split
+                min_split_n_sample, min_leaf_n_sample, n_random_split,
+                min_prop
             );
         }
     }
@@ -173,24 +177,12 @@ cpp11::list cpp11_train(
 
 
   /* Create the random forest object. */
-    using dbl_vector_ptr = std::shared_ptr<dbl_vector>;
-    dbl_vector_ptr response_values { };
-
     switch (enum_tree_type) {
     case TREE_CLASSIFICATION: {
-        response_values = dbl_vector_ptr(
-            new dbl_vector(data->get_response_values())
-        );
-        forest = make_forest<ForestClassification>(
-            response_values,
-            as_vector_ptr<double>(response_weights),
-            tree_parameters, save_memory
-        );
+        forest = make_forest<ForestClassification>(save_memory);
     } break;
     case TREE_REGRESSION: {
-        forest = make_forest<ForestRegression>(
-            min_prop, tree_parameters, save_memory
-        );
+        forest = make_forest<ForestRegression>(save_memory);
     } break;
     default: throw std::invalid_argument("Unsupported tree type.");
     }
@@ -204,34 +196,23 @@ cpp11::list cpp11_train(
 
     double oob_error;
     forest->plant(
-        data, as_vector_ptr<double>(case_weights), seed, plant_n_thread,
-        true, user_interrupt, oob_error, print_out
+        n_predictor, is_ordered, forest_parameters, data,
+        as_vector_ptr<double>(case_weights), seed,
+        plant_n_thread, true, user_interrupt, oob_error, print_out
     );
     // TODO: per-tree case weights?
 
 
-  /* Store the results (selected arguments) */
-    result.push_back({ "predictor_names"_nm = predictor_names });
-    result.push_back({ "names_of_unordered"_nm = names_of_unordered });
+  /* Store selected arguments or parameters not related to observations */
     result.push_back({ "tree_type"_nm = tree_type });
-    result.push_back({ "n_tree"_nm = n_tree });
     result.push_back({ "n_try"_nm = n_try });
-    result.push_back({ "split_rule"_nm = split_rule });
-    result.push_back({ "max_depth"_nm = max_depth });
-    result.push_back({ "min_metric_decrease"_nm = min_metric_decrease });
     result.push_back({ "min_split_n_sample"_nm = min_split_n_sample });
     result.push_back({ "min_leaf_n_sample"_nm = min_leaf_n_sample });
-    // TODO:  min_prop ?
-    result.push_back({ "seed"_nm = seed });
+
+  /* Out-of-bag error estimate */
     result.push_back({ "oob_error"_nm = oob_error });
+
     // TODO: ??? confusion matrix
-
-    if (enum_split_rule == EXTRATREES)
-        result.push_back({ "n_random_split"_nm = n_random_split });
-
-    if (enum_tree_type == TREE_CLASSIFICATION) {
-        result.push_back({ "response_values"_nm = *response_values });
-    }
 
     result.push_back({
         "cpp11_ptr"_nm = cpp11::external_pointer<ForestBase>(forest.release())

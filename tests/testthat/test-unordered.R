@@ -22,19 +22,19 @@ dat_num_ftor$x <- factor(dat_num_ftor$x, ordered=FALSE)
 test_that("can train a forest with partitioning", {
     expect_silent(rf_class <- train(data=dat_class, response_name="y",
                                     unordered_predictors="partition"))
-    expect_true(length(rf_class$names_of_unordered) > 0)
+    expect_true(length(rf_class$predictors$names_of_unordered) > 0)
     expect_silent(rf_num <- train(data=dat_num, response_name="y",
                                   unordered_predictors="partition"))
-    expect_true(length(rf_num$names_of_unordered) > 0)
+    expect_true(length(rf_num$predictors$names_of_unordered) > 0)
 })
 
 test_that("can train a forest with re-ordering via PCA score", {
     expect_silent(rf_class <- train(data=dat_class, response_name="y",
                                     unordered_predictors="order"))
-    expect_true(length(rf_class$names_of_unordered) == 0)
+    expect_true(length(rf_class$predictors$names_of_unordered) == 0)
     expect_silent(rf_num <- train(data=dat_num, response_name="y",
                                   unordered_predictors="order"))
-    expect_true(length(rf_num$names_of_unordered) == 0)
+    expect_true(length(rf_num$predictors$names_of_unordered) == 0)
 })
 
 test_that("get error when too many levels in factor for partitioning", {

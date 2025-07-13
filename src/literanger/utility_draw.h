@@ -29,24 +29,21 @@ namespace literanger {
 
 /* Declarations */
 
-/** Draw with replacement from the sequence `[0, 1, ..., M]`.
- *
+/** Draw with replacement from the sequence `[0, 1, ..., N-1]`.
  * @param[in] n The number of values from the sequence to draw.
  * @param[in] limit The largest number in the sequence.
  * @param[in] gen A pseudo-random number generator.
  * @param[out] result The samples from the sequence drawn with replacement; must
  * be initially empty.
  * @param[out] inbag_counts A container with ones in elements that are
- * in the sample, and zeroes otherwise; must be (initially) all zeroes.
- */
+ * in the sample, and zeroes otherwise; must be (initially) all zeroes. */
 void draw_replace(const size_t n, const size_t limit,
                   std::mt19937_64 & gen,
                   key_vector & result, count_vector & inbag_counts);
 
 
-/** Draw with replacement from the sequence `[0, 1, ..., M]` with a specified
- * probability (or weights) for each number in the sequence.
- *
+/** Draw with replacement from the sequence `[0, 1, ..., N-1]` with a specified
+ * probability (or weight) for each number in the sequence.
  * @param[in] n The number of values from the sequence to draw.
  * @param[in] weights A vector of weights for each number in the sequence
  * (this argument specifies the largest number in the sequence).
@@ -54,22 +51,20 @@ void draw_replace(const size_t n, const size_t limit,
  * @param[out] result The samples from the sequence drawn with replacement;
  * must be initially empty.
  * @param[out] inbag_counts A container with ones in the elements that are in
- * the sample, and zeroes otherwise; must be (initially) all zeros.
- */
+ * the sample, and zeroes otherwise; must be (initially) all zeros. */
 void draw_replace_weighted(const size_t n, const dbl_vector & weights,
                            std::mt19937_64 & gen,
                            key_vector & result, count_vector & inbag_counts);
 
 
-/**
+/** Draw without replacement from the sequence `[0, 1, ..., N-1]`.
  * @param[in] n The number of values from the sequence to draw.
  * @param[in] limit The largest number in the sequence.
  * @param[in] gen A pseudo-random number generator.
  * @param[out] result The samples from the sequence drawn without; must
  * be initially empty.
  * @param[out] inbag_counts A container with ones in elements that are
- * in the sample, and zeroes otherwise; must be (initially) all zeroes.
- */
+ * in the sample, and zeroes otherwise; must be (initially) all zeroes. */
 void draw_no_replace(const size_t n,
                      const size_t limit,
                      const key_vector & skipped,
@@ -78,12 +73,12 @@ void draw_no_replace(const size_t n,
                      count_vector & inbag_counts);
 
 
-/**
+/** Draw without replacement from the sequence `[0, 1, ..., N-1]` with a
+ * specified probability (or weight) for each number in the sequence.
  * @param[out] result The samples from the sequence drawn without; must
  * be initially empty.
  * @param[out] inbag_counts A container with ones in elements that are
- * in the sample, and zeroes otherwise; must be (initially) all zeroes.
- */
+ * in the sample, and zeroes otherwise; must be (initially) all zeroes. */
 void draw_no_replace_weighted(const size_t n,
                               const dbl_vector & weights,
                               std::mt19937_64 & gen,

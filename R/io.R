@@ -48,11 +48,11 @@
 #' train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 #' iris_train <- iris[ train_idx, ]
 #' iris_test  <- iris[-train_idx, ]
-#' rf_iris <- train(data=iris_train, response_name="Species")
+#' lr_iris <- train(data=iris_train, response_name="Species")
 #' file <- tempfile()
-#' write_literanger(rf_iris, file)
-#' rf_copy <- read_literanger(file)
-#' pred_bagged <- predict(rf_copy, newdata=iris_test, prediction_type="bagged")
+#' write_literanger(lr_iris, file)
+#' lr_copy <- read_literanger(file)
+#' pred_bagged <- predict(lr_copy, newdata=iris_test, prediction_type="bagged")
 #'
 #' @author stephematician <stephematician@gmail.com>
 #'
@@ -60,17 +60,17 @@
 #'
 #' @export
 #' @md
-write_literanger <- function(object, file, verbose=TRUE, ...) {
+write_literanger <- function(object, file, verbose=FALSE, ...) {
 
     stopifnot(inherits(object, "literanger"))
 
     serialized <- list(cpp11=cpp11_serialize(object, verbose=verbose))
 
-    serialized$response_levels <- object$response_levels
-    serialized$response_ordered <- object$response_ordered
-    serialized$response_is_character <- object$response_is_character
-    serialized$response_is_logical <- object$response_is_logical
-    serialized$predictor_levels <- object$predictor_levels
+    serialized$tree_type <- object$tree_type
+    serialized$n_tree <- object$n_tree
+    serialized$training <- object$training
+    serialized$predictors <- object$predictors
+    serialized$response <- object$response
 
     saveRDS(object=serialized, file=file, ...)
 
@@ -103,17 +103,17 @@ write_literanger <- function(object, file, verbose=TRUE, ...) {
 #'
 #' @export
 #' @md
-read_literanger <- function(file, verbose=TRUE, ...) {
+read_literanger <- function(file, verbose=FALSE, ...) {
 
     serialized <- readRDS(file=file, ...)
 
     object <- cpp11_deserialize(serialized$cpp11, verbose=verbose)
 
-    object$response_levels <- serialized$response_levels
-    object$response_ordered <- serialized$response_ordered
-    object$response_is_character <- serialized$response_is_character
-    object$response_is_logical <- serialized$response_is_logical
-    object$predictor_levels <- serialized$predictor_levels
+    object$tree_type <- serialized$tree_type
+    object$n_tree <- serialized$n_tree
+    object$training <- serialized$training
+    object$predictors <- serialized$predictors
+    object$response <- serialized$response
 
     class(object) <- "literanger"
 

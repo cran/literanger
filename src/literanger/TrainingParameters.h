@@ -12,8 +12,8 @@
  * license. You should have received a copy of the MIT license along with
  * literanger. If not, see <https://opensource.org/license/mit/>.
  */
-#ifndef LITERANGER_TREE_PARAMETERS_H
-#define LITERANGER_TREE_PARAMETERS_H
+#ifndef LITERANGER_TRAINING_PARAMETERS_H
+#define LITERANGER_TRAINING_PARAMETERS_H
 
 #include <cstddef>
 #include <memory>
@@ -22,7 +22,7 @@
 
 /* cereal types */
 #include "cereal/types/memory.hpp"
-#include "cereal/types/string.hpp"
+#include "cereal/types/string.hpp" /* for SplitRule? */
 #include "cereal/types/vector.hpp"
 
 /* general literanger headers */
@@ -38,19 +38,16 @@ namespace literanger {
  * a random forest. A vector of these parameters is passed to the forest
  * constructor which dictates how many trees and what the values of the
  * parameters for each tree are. */
-struct TreeParameters {
+struct TrainingParameters {
 
-    using name_vector = std::vector<std::string>;
     using key_vector_ptr = std::shared_ptr<key_vector>;
     using dbl_vector_ptr = std::shared_ptr<dbl_vector>;
 
-    TreeParameters() = default;
+    TrainingParameters() = default;
 
     /** Generic tree parameter constructor
-     * @param[in] n_predictor Number of predictors in the tree model.
-     * @param[in] is_unordered Container of indicators for ordered predictors.
      * @param[in] replace Whether to sample with replacement when training.
-     * @param[in] sample_fraction The fraction of samples to use to train
+     * @param[in] sample_fraction The fraction of observations to use to train
      * each tree.
      * @param[in] n_try The number of candidate predictors for each split.
      * @param[in] draw_always_predictor_keys The key of each predictor that will
@@ -66,32 +63,29 @@ struct TreeParameters {
      * @param[in] min_leaf_n_sample The minimum number of in-bag samples in a
      * leaf node in the growth phase.
      * @param[in] n_random_split The number of values to draw when splitting
-     * via the extratrees rule. */
-    TreeParameters(
-        const size_t n_predictor,
-        const std::shared_ptr<std::vector<bool>> is_ordered,
+     * via the extratrees rule.
+     * @param[in] min_prop The smallest proportion for max-stat splitting
+     * @param[in] response_weights Weights for each class of the response in a
+     * classification forest. */
+    TrainingParameters(
         const bool replace, const dbl_vector_ptr sample_fraction,
         const size_t n_try, const key_vector_ptr draw_always_predictor_keys,
         const dbl_vector_ptr draw_predictor_weights,
+        const dbl_vector_ptr response_weights,
         const SplitRule split_rule, const double min_metric_decrease,
-        const size_t max_depth, const size_t min_split_n_sample,
-        const size_t min_leaf_n_sample, const size_t n_random_split
+        const size_t max_depth,
+        const size_t min_split_n_sample,
+        const size_t min_leaf_n_sample, const size_t n_random_split,
+        const double min_prop
     );
-
-    /** @name Specification of predictors in tree or forest. */
-    /**@{*/
-    /** Number of predictors in the random forest model. */
-    size_t n_predictor;
-    /** Indicator for ordered predictors */
-    std::shared_ptr<std::vector<bool>> is_ordered;
-    /**@}*/
 
     /** @name Resampling training data for growing (training) a tree. */
     /**@{*/
-    /** Indicator for sampling with replacement when when fitting. */
+    /** Indicator for sampling with replacement when when training. */
     bool replace;
-    /** The fraction of samples to use when fitting each tree (scalar) or, when
-     * when a vector is supplied, the response-specific fractions. */
+
+    /** The fraction of observations to use when training each tree (scalar) or,
+     * when when a vector is supplied, the response-specific fractions. */
     dbl_vector_ptr sample_fraction;
     /**@}*/
 
@@ -105,6 +99,12 @@ struct TreeParameters {
     /** Weights for each predictor that determine probability of selection as a
      * candidate for splitting (see std::discrete_distribution). */
     dbl_vector_ptr draw_predictor_weights;
+    /**@}*/
+
+    /** @name Response parameters (currently in classification only) */
+    /**@{*/
+    /** Weights for each class of response in a classificaiton forest */
+    dbl_vector_ptr response_weights;
     /**@}*/
 
     /** @name Node-splitting rules. */
@@ -123,58 +123,43 @@ struct TreeParameters {
     /** Number of random splits to draw when using extra-random trees
       * algorithm. */
     size_t n_random_split;
+    /* The smallest proportion for a child-node (compared to parent) when using
+     * max-stat splitting rule */
+    double min_prop;
     /**@}*/
 
-    template <typename archive_type>
-    void serialize(archive_type & archive);
-
-    template <typename archive_type>
-    static void load_and_construct(
-        archive_type & archive,
-        cereal::construct<TreeParameters> & construct
-    );
 
 };
 
 
-inline TreeParameters::TreeParameters(
-    const size_t n_predictor,
-    const std::shared_ptr<std::vector<bool>> is_ordered,
+inline TrainingParameters::TrainingParameters(
     const bool replace, const dbl_vector_ptr sample_fraction,
     const size_t n_try, const key_vector_ptr draw_always_predictor_keys,
     const dbl_vector_ptr draw_predictor_weights,
+    const dbl_vector_ptr response_weights,
     const SplitRule split_rule, const double min_metric_decrease,
-    const size_t max_depth, const size_t min_split_n_sample,
-    const size_t min_leaf_n_sample, const size_t n_random_split
+    const size_t max_depth,
+    const size_t min_split_n_sample,
+    const size_t min_leaf_n_sample, const size_t n_random_split,
+    const double min_prop
 ) :
-    n_predictor(n_predictor), is_ordered(is_ordered),
     replace(replace), sample_fraction(sample_fraction),
     n_try(n_try), draw_always_predictor_keys(draw_always_predictor_keys),
     draw_predictor_weights(draw_predictor_weights),
+    response_weights(response_weights),
     split_rule(split_rule), min_metric_decrease(min_metric_decrease),
     max_depth(max_depth), min_split_n_sample(min_split_n_sample),
-    min_leaf_n_sample(min_leaf_n_sample), n_random_split(n_random_split)
+    min_leaf_n_sample(min_leaf_n_sample), n_random_split(n_random_split),
+    min_prop(min_prop)
 {
     if (this->n_try == 0) throw std::domain_error("'n_try' must be positive.");
     if (this->split_rule == EXTRATREES && this->n_random_split == 0)
         throw std::domain_error("'n_random_split' must be positive.");
-    if (this->n_try > this->n_predictor)
-        throw std::domain_error("'n_try' can not be larger than number of "
-            "predictors (columns).");
-}
-
-
-template <typename archive_type>
-void TreeParameters::serialize(archive_type & archive) {
-    archive(n_predictor, is_ordered, replace, sample_fraction, n_try,
-            draw_always_predictor_keys, draw_predictor_weights,
-            split_rule, min_metric_decrease, max_depth, min_split_n_sample,
-            min_leaf_n_sample, n_random_split);
 }
 
 
 } /* namespace literanger */
 
 
-#endif /* LITERANGER_TREE_PARAMETERS_H */
+#endif /* LITERANGER_TRAINING_PARAMETERS_H */
 

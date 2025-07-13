@@ -4,9 +4,9 @@
 \name{literanger-package}
 \alias{literanger}
 \alias{literanger-package}
-\title{\pkg{literanger}: Random Forests for Multiple Imputation based on 'ranger'.}
+\title{\pkg{literanger}: Fast Serializable Random Forests based on 'ranger'.}
 \description{
-'literanger' is an adaption of the 'ranger' R package for training and
+'literanger' is an adaptation of the 'ranger' R package for training and
 predicting from random forest models within multiple imputation algorithms.
 ranger is a fast implementation of random forests (Breiman, 2001) or
 recursive partitioning, particularly suited for high dimensional data
@@ -23,6 +23,9 @@ algorithm has better predictive distribution properties than competing
 approaches which use predictive mean matching. Alternatively, the usual
 bagged prediction may be used as in the imputation algorithm called
 'missForest' (Stekhoven et al, 2014).
+
+Efficient serialization, i.e. reading and writing, of a trained random forest
+is provided via the cereal library \url{https://uscilab.github.io/cereal/}.
 
 Classification and regression forests are implemented as in the original
 Random Forest (Breiman, 2001) or using extremely randomized trees (Geurts et

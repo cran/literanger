@@ -81,7 +81,7 @@ inline double maxstat_p_value_Lausen94(const double b, const size_t N,
         const double m_j = m[j];
         const double m_jp1 = m[j + 1];
         const double t = std::sqrt(
-            1.0 - (m_j / m_jp1) * (N - m_jp1) / (N - m_j)
+            1 - (m_j / m_jp1) * (N - m_jp1) / (N - m_j)
         );
         D += std::exp(-0.5 * bsq) * (t - (bsq / 4 - 1) * std::pow(t, 3) / 6);
     }
@@ -92,15 +92,30 @@ inline double maxstat_p_value_Lausen94(const double b, const size_t N,
 
 
 /** Compute adjusted p-values using Benjamini/Hochberg method */
-inline std::vector<double> adjust_pvalues(const std::vector<double> & unadjusted) {
+inline std::vector<double> adjust_pvalues(
+    const std::vector<double> & unadjusted
+) {
 
     const size_t n_pvalue = unadjusted.size();
+#if ( defined USING_R ) && \
+    ( __GNUC__ == 12 && __GNUC_MINOR__ > 3 && __GNUC_MINOR__ < 5 ) || \
+    ( __GNUC__ == 13 && __GNUC_MINOR__ < 4 ) || \
+    ( __GNUC__ == 14 && __GNUC_MINOR__ < 3 )
+    if (n_pvalue < 2) {
+        /* TODO: Remove this kludge which avoid a warning being generated due
+         * to a compiler bug */
+        std::vector<double> adjusted(n_pvalue);
+        adjusted = unadjusted;
+        return adjusted;
+    }
+#else
     if (n_pvalue < 2) return unadjusted; /* short circuit */
+#endif
 
   /* Order of p-values (decreasing) */
     const std::vector<size_t> index = order<true>(unadjusted);
 
-    std::vector<double> adjusted(n_pvalue, 0);
+    std::vector<double> adjusted(n_pvalue, 0.0);
     adjusted[index[0]] = unadjusted[index[0]];
 
     for (size_t j = 1; j != n_pvalue; ++j) {

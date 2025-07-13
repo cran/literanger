@@ -104,27 +104,13 @@
  * predicting.
  *
  * @returns A list (in R) with:
- * -  `predictor_names`: the names of the predictor variables in the model.
- * -  `names_of_unordered`: the names of predictors that are unordered.
- * -  `tree_type`: the type of tree in the forest.
- * -  `n_tree`: the number of trees that were trained.
- * -  `n_try`: the number of predictors drawn as candidates for each split.
- * -  `split_rule`: the name of the split metric used.
- * -  `max_depth`: the maximum allowed depth of a tree in the forest.
- * -  `min_metric_decrease`: the minimum decrease in the metric for an
- *     acceptable split, equal to negative `alpha` for maximally selected rank
- *     statistic split metric, else zero.
+ * -   `cpp11_ptr`: an external pointer to the trained forest.
  * -   `min_split_n_sample`: the minimum number of in-bag samples in a node
  *     prior to splitting.
  * -   `min_leaf_n_sample`: the minumum number of in-bag samples in a leaf node.
- * -   `seed`: the seed supplied to the C++ library.
+ * -   `n_try`: the number of predictors drawn as candidates for each split.
  * -   `oob_error`: the misclassification rate or the mean square error using
- *     out-of-bag samples.}
- * -   `n_random_split`: "extratrees" split rule only; the number of candidate
- *     _values_ drawn when splitting.
- * -   `response_values`: classification only; the values of the response in
- *     the order they appear in the data.
- * -   `cpp11_ptr`: an external pointer to the trained forest.
+ *     out-of-bag samples.
  */
 cpp11::list cpp11_train(
     cpp11::doubles_matrix<> x, cpp11::doubles_matrix<> y, cpp11::sexp sparse_x,

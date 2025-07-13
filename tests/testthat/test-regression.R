@@ -10,7 +10,7 @@ rf_mat <- train(data=iris_mat, response_name="Sepal.Length")
 ## Basic tests (for all random forests equal)
 test_that("training result has correct class and size", {
     expect_is(rf_df, "literanger")
-    expect_equal(length(rf_df), 14)
+    expect_equal(length(rf_df), 7)
 })
 
 test_that("prediction is a numeric vector", {
@@ -29,18 +29,17 @@ test_that("error if sample fraction is vector for regression", {
     )
 })
 
-
 test_that("trained forest has default number of trees", {
     expect_equal(rf_df$n_tree, formals(literanger::train)$n_tree)
 })
 
 test_that("trained forest has correct predictor names", {
-    expect_equal(setdiff(names(iris), rf_df$predictor_names), "Sepal.Length")
+    expect_equal(setdiff(names(iris), rf_df$predictors$names), "Sepal.Length")
 })
 
 test_that("can use matrix interface for training", {
     expect_equal(rf_mat$tree_type, "regression")
-    expect_equal(setdiff(names(iris), rf_mat$predictor_names), "Sepal.Length")
+    expect_equal(setdiff(names(iris), rf_mat$predictors$names), "Sepal.Length")
 })
 
 test_that("can use matrix interface for prediction", {
@@ -83,8 +82,8 @@ test_that("default split metric is 'variance'", {
     rf_var <- train(data=iris, response_name="Sepal.Length",
                     split_rule="variance")
 
-    expect_equal(rf_df$split_rule, "variance")
-    expect_equal(rf_var$split_rule, "variance")
+    expect_equal(rf_df$training$split_rule, "variance")
+    expect_equal(rf_var$training$split_rule, "variance")
     expect_equal(rf_df$oob_error, rf_var$oob_error)
 })
 

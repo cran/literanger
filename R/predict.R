@@ -65,9 +65,8 @@
 #' @param prediction_type Name of the prediction algorithm; "bagged" is the
 #' most-frequent value among in-bag samples for classification, or the mean of
 #' in-bag responses for regression; "inbag" predicts by drawing one in-bag
-#' response from a random tree for each row; "nodes" (currently unsupported)
-#' returns the node keys (ids) of the terminal node from every tree for each
-#' row.
+#' response from a random tree for each row; "nodes" returns the node keys
+#' (ids) of the terminal node from every tree for each row.
 #' @param seed Random seed, an integer between 1 and `.Machine$integer.max`.
 #' Default generates the seed from `R`, set to `0` to ignore the `R` seed and
 #' use a C++ `std::random_device`.
@@ -79,9 +78,12 @@
 #' @return Object of class `literanger_prediction` with elements:
 #' \describe{
 #'   \item{`values`}{Predicted (drawn) classes/value for classification and
-#'     regression.}
+#'     regression (when prediction type is not `nodes`).}
 #'   \item{`tree_type`}{Number of trees.}
 #'   \item{`seed`}{The seed supplied to the C++ library.}
+#'   \item{`nodes`}{When prediction type is `nodes`: a matrix of terminal node
+#'     identifiers, with each row being a prediction and each column being a
+#'     tree.}
 #' }
 #'
 #' @examples
@@ -89,10 +91,10 @@
 #' train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 #' iris_train <- iris[ train_idx, ]
 #' iris_test  <- iris[-train_idx, ]
-#' rf_iris <- train(data=iris_train, response_name="Species")
-#' pred_iris_bagged <- predict(rf_iris, newdata=iris_test,
+#' lr_iris <- train(data=iris_train, response_name="Species")
+#' pred_iris_bagged <- predict(lr_iris, newdata=iris_test,
 #'                             prediction_type="bagged")
-#' pred_iris_inbag  <- predict(rf_iris, newdata=iris_test,
+#' pred_iris_inbag  <- predict(lr_iris, newdata=iris_test,
 #'                             prediction_type="inbag")
 #' # compare bagged vs actual test values
 #' table(iris_test$Species, pred_iris_bagged$values)
@@ -136,7 +138,7 @@ predict.literanger <- function(
     is_df <- is.data.frame(x)
     x_names <- if(is_df) names(x) else colnames(x)
 
-    predictor_names <- object$predictor_names
+    predictor_names <- object$predictors$names
     if (!all(predictor_names %in% x_names))
         stop("One or more predictors not found in data.")
 
@@ -155,7 +157,7 @@ predict.literanger <- function(
     }
 
   # Recode factors if forest grown in 'ordered' mode
-    predictor_levels <- (object$predictor_levels)[predictor_names]
+    predictor_levels <- (object$predictors$levels)[predictor_names]
     factor_ind <- !sapply(predictor_levels, is.null)
     if (length(factor_ind) > 0) {
 
@@ -212,15 +214,15 @@ predict.literanger <- function(
     result$tree_type <- object$tree_type
     result$seed <- seed
 
-    if (is.numeric(result$values) && !is.null(object$response_is_logical))
+    if (is.numeric(result$values) && !is.null(object$response$is_logical))
         result$values <- as.logical(result$values)
 
-    if (is.numeric(result$values) && !is.null(object$response_levels)) {
+    if (is.numeric(result$values) && !is.null(object$response$levels)) {
         result$values <- factor(result$values,
-                                levels=seq_along(object$response_levels),
-                                labels=object$response_levels,
-                                ordered=object$response_ordered)
-        if (object$response_is_character)
+                                levels=seq_along(object$response$levels),
+                                labels=object$response$levels,
+                                ordered=object$response$is_ordered)
+        if (object$response$is_character)
             result$values <- as.character(result$values)
     }
 

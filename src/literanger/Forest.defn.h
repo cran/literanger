@@ -37,6 +37,18 @@
 
 namespace literanger {
 
+#define LITERANGER_BEGIN_WORKER \
+    try {
+#define LITERANGER_END_WORKER                         \
+    } catch (std::exception & e) {                    \
+        {                                             \
+            std::unique_lock<std::mutex> lock(mutex); \
+            interrupted |= true;                      \
+            condition_variable.notify_one();          \
+        }                                             \
+        throw;                                        \
+    }
+
 /* construction call definition */
 
 template <typename ImplT>
@@ -49,21 +61,31 @@ Forest<ImplT>::Forest(ArgsT &&... args) :
 /* Interface definitions */
 
 template <typename ImplT>
-void Forest<ImplT>::plant(const std::shared_ptr<const Data> data,
+void Forest<ImplT>::plant(
+    const size_t n_predictor, const bool_vector_ptr is_ordered,
+    const std::vector<TrainingParameters> & forest_parameters,
 /* TODO: maybe vector of case-weights? */
-                          const dbl_vector_ptr case_weights,
-                          const size_t seed,
-                          const size_t n_thread,
-                          const bool compute_oob_error,
-                          const interruptor & user_interrupt,
-                          double & oob_error,
-                          toggle_print & print_out) {
+    const std::shared_ptr<const Data> data, const cdbl_vector_ptr case_weights,
+    const size_t seed, const size_t n_thread, const bool compute_oob_error,
+    const interruptor & user_interrupt, double & oob_error,
+    toggle_print & print_out
+) {
 
     ImplT & forest_impl = *(static_cast<ImplT*>(this));
 
     const size_t n_sample = data->get_n_row();
 
-    /* should check all? */
+    const size_t obj_n_predictor = get_n_predictor();
+    const cbool_vector_ptr obj_is_ordered = get_is_ordered();
+
+  /* TODO: Allow for adding new trees */
+    if (obj_n_predictor == 0 && !obj_is_ordered) {
+        this->n_predictor = n_predictor;
+        this->is_ordered = is_ordered;
+    } else
+        throw std::runtime_error("Cannot plant trees into existing forest");
+
+    /* FIXME: should check all? */
    // if ((double)n_sample * (*sample_fraction)[0] < 1)
    //     throw std::domain_error("sample_fraction too small (results in zero "
    //         "samples).");
@@ -75,20 +97,20 @@ void Forest<ImplT>::plant(const std::shared_ptr<const Data> data,
     print_out("Growing trees...\n");
     seed_gen(seed);
 
-    for (size_t j = 0; j != n_tree; ++j) {
-        const dbl_vector_ptr sample_fraction =
-            tree_parameters[j].sample_fraction;
+    for (TrainingParameters parameters : forest_parameters) {
+        const cdbl_vector_ptr sample_fraction = parameters.sample_fraction;
         for (double p : *sample_fraction) {
             if ((double)n_sample * p < 1)
                 throw std::domain_error("'sample_fraction' too small (results "
                     "in zero samples).");
         }
-        forest_impl.plant_tree(data, tree_parameters[j]);
+        forest_impl.plant_tree(save_memory, n_predictor, is_ordered);
     }
 
+    const size_t n_tree = trees.size();
     {
         std::uniform_int_distribution<size_t> U_rng { };
-        for (size_t j = 0; j != n_tree; ++j) {
+        for (size_t j = 0; j != trees.size(); ++j) {
             const size_t seed_j = seed == 0 ? U_rng(gen) : (j + 1) * seed;
             trees[j]->seed_gen(seed_j);
         }
@@ -104,17 +126,18 @@ void Forest<ImplT>::plant(const std::shared_ptr<const Data> data,
     std::vector<std::future<void>> work_result;
     work_result.reserve(n_grow_thread);
 
-    forest_impl.new_growth(data);
+    forest_impl.new_growth(forest_parameters, data);
 
     if (compute_oob_error) forest_impl.new_oob_error(data, n_grow_thread);
 
   /* Start growing trees in threads */
     for (size_t work_index = 0; work_index != n_grow_thread; ++work_index)
-        work_result.push_back(std::async(
-            std::launch::async,
-            &Forest<ImplT>::grow_interval,
-            this, work_index, data, case_weights,
-            compute_oob_error)
+        work_result.push_back(
+            std::async(
+                std::launch::async, &Forest<ImplT>::grow_interval,
+                this, work_index, forest_parameters, data, case_weights,
+                compute_oob_error
+            )
         );
 
   /* Block until all tree-growth threads have finished */
@@ -124,7 +147,10 @@ void Forest<ImplT>::plant(const std::shared_ptr<const Data> data,
 
     if (interrupted) throw std::runtime_error("User interrupt.");
 
-    if (compute_oob_error) oob_error = forest_impl.finalise_oob_error(data);
+    if (compute_oob_error) {
+        oob_error = forest_impl.compute_oob_error(data);
+        forest_impl.finalise_oob_error();
+    }
 
     forest_impl.finalise_growth(data);
 
@@ -141,6 +167,7 @@ void Forest<ImplT>::predict(const std::shared_ptr<const Data> data,
                             toggle_print & print_out) {
 
     ImplT & forest_impl = *(static_cast<ImplT*>(this));
+    const size_t n_tree = trees.size();
 
     print_out("Predicting...\n");
     seed_gen(seed);
@@ -149,7 +176,7 @@ void Forest<ImplT>::predict(const std::shared_ptr<const Data> data,
         std::uniform_int_distribution<size_t> U_rng { };
         for (size_t j = 0; j != n_tree; ++j) {
             const size_t seed_j = seed == 0 ? U_rng(gen) : (j + 1) * seed;
-            trees[j]->seed_gen(seed_j); //
+            trees[j]->seed_gen(seed_j);
         }
     }
 
@@ -195,11 +222,12 @@ void Forest<ImplT>::predict(const std::shared_ptr<const Data> data,
 template <typename ImplT>
 void Forest<ImplT>::grow_interval(
     const size_t work_index,
+    const std::vector<TrainingParameters> & forest_parameters,
     const std::shared_ptr<const Data> data,
-    const dbl_vector_ptr case_weights,
+    const cdbl_vector_ptr case_weights,
     const bool compute_oob_error
 ) {
-    BEGIN_WORKER
+    LITERANGER_BEGIN_WORKER
 
     ImplT & forest_impl = *(static_cast<ImplT*>(this));
 
@@ -209,8 +237,9 @@ void Forest<ImplT>::grow_interval(
     const size_t end = work_intervals[work_index + 1];
 
     for (size_t tree_key = start; tree_key != end; ++tree_key) {
-        key_vector oob_keys = trees[tree_key]->grow(data, case_weights,
-                                                    compute_oob_error);
+        key_vector oob_keys = trees[tree_key]->grow(
+            forest_parameters[tree_key], data, case_weights, compute_oob_error
+        );
 
         if (compute_oob_error)
             forest_impl.oob_one_tree(tree_key, data, oob_keys);
@@ -222,7 +251,7 @@ void Forest<ImplT>::grow_interval(
 
     }
 
-    END_WORKER
+    LITERANGER_END_WORKER
 }
 
 
@@ -232,7 +261,7 @@ void Forest<ImplT>::predict_interval(
     const size_t work_index,
     const std::shared_ptr<const Data> data
 ) {
-    BEGIN_WORKER
+    LITERANGER_BEGIN_WORKER
 
     ImplT & forest_impl = *(static_cast<ImplT*>(this));
 
@@ -258,7 +287,7 @@ void Forest<ImplT>::predict_interval(
 
     }
 
-    END_WORKER
+    LITERANGER_END_WORKER
 }
 
 

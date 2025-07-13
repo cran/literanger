@@ -28,17 +28,17 @@
 
 namespace literanger {
 
-inline Data::Data(const size_t n_row, const size_t n_col) :
+inline Data::Data(const size_t n_row, const size_t n_col) noexcept :
     n_row(n_row), n_col(n_col) { }
 
 
 inline Data::~Data() { }
 
 
-inline size_t Data::get_n_col() const { return n_col; }
+inline size_t Data::get_n_col() const noexcept { return n_col; }
 
 
-inline size_t Data::get_n_row() const { return n_row; }
+inline size_t Data::get_n_row() const noexcept { return n_row; }
 
 
 inline void Data::get_all_values(dbl_vector & all_values,
@@ -50,11 +50,11 @@ inline void Data::get_all_values(dbl_vector & all_values,
     if (start > end)
         throw std::invalid_argument("Start of interval must not be past end.");
 
-    all_values.reserve(end - start);
-
-    for (size_t j = start; j != end; ++j)
-        all_values.emplace_back(get_x(sample_keys[j], predictor_key, permute));
-
+    /* copy the (sub)sample's predictor-values */
+    all_values.resize(end - start);
+    for (size_t j = 0; j != end - start; ++j)
+        all_values[j] = get_x(sample_keys[start + j], predictor_key, permute);
+    /* get unique sorted values */
     std::sort(all_values.begin(), all_values.end());
     all_values.erase(std::unique(all_values.begin(), all_values.end()),
                      all_values.end());
@@ -93,35 +93,34 @@ inline void Data::new_predictor_index() const {
     for (size_t column = 0; column != n_col; ++column) {
 
       /* Get the unique values and update the index for this predictor */
-        dbl_vector unique_values(n_row);
+        dbl_vector values(n_row);
         for (size_t row = 0; row != n_row; ++row)
-            unique_values[row] = get_x(row, column);
+            values[row] = get_x(row, column);
 
-        std::sort(unique_values.begin(), unique_values.end());
-        unique_values.erase(
-            std::unique(unique_values.begin(), unique_values.end()),
-            unique_values.end()
+        std::sort(values.begin(), values.end());
+        values.erase(
+            std::unique(values.begin(), values.end()),
+            values.end()
         );
 
         for (size_t row = 0; row != n_row; ++row)
             predictor_index[column * n_row + row] = std::distance(
-                unique_values.begin(),
+                values.begin(),
                 std::lower_bound(
-                    unique_values.begin(), unique_values.end(),
-                    get_x(row, column)
+                    values.begin(), values.end(), get_x(row, column)
                 )
             );
 
       /* Save unique values for this predictor */
-        unique_predictor_values.push_back(unique_values);
-        max_n_unique_value = std::max(unique_values.size(), max_n_unique_value);
+        unique_predictor_values.emplace_back(values);
+        max_n_unique_value = std::max(values.size(), max_n_unique_value);
 
     }
 
 }
 
 
-inline void Data::finalise_predictor_index() const {
+inline void Data::finalise_predictor_index() const noexcept {
     predictor_index.clear();
     predictor_index.shrink_to_fit();
     unique_predictor_values.clear();
@@ -130,14 +129,14 @@ inline void Data::finalise_predictor_index() const {
 }
 
 
-inline bool Data::has_predictor_index() const {
+inline bool Data::has_predictor_index() const noexcept {
     return max_n_unique_value != 0;
 }
 
 
-inline size_t Data::get_index(const size_t sample_key,
-                              const size_t predictor_key,
-                              const bool permute) const {
+inline size_t Data::get_unique_key(const size_t sample_key,
+                                   const size_t predictor_key,
+                                   const bool permute) const {
     const size_t row = as_row_offset(sample_key, permute);
     if (predictor_key >= n_col)
         throw std::invalid_argument("Predictor key must be less than number of "
@@ -146,16 +145,16 @@ inline size_t Data::get_index(const size_t sample_key,
 }
 
 
-inline size_t Data::raw_get_index(const size_t sample_key,
-                                  const size_t predictor_key,
-                                  const bool permute) const noexcept {
+inline size_t Data::rawget_unique_key(const size_t sample_key,
+                                      const size_t predictor_key,
+                                      const bool permute) const noexcept {
     const size_t row = as_row_offset(sample_key, permute);
     return predictor_index[predictor_key * n_row + row];
 }
 
 
-inline double Data::get_unique_predictor_value(const size_t predictor_key,
-                                               const size_t offset) const {
+inline double Data::get_unique_value(const size_t predictor_key,
+                                     const size_t offset) const {
     if (predictor_key >= n_col)
         throw std::invalid_argument("Predictor key must be less than number of "
             "columns.");
@@ -163,9 +162,7 @@ inline double Data::get_unique_predictor_value(const size_t predictor_key,
 }
 
 
-inline size_t Data::get_n_unique_predictor_value(
-    const size_t predictor_key
-) const {
+inline size_t Data::get_n_unique_value(const size_t predictor_key) const {
     if (predictor_key >= n_col)
         throw std::invalid_argument("Predictor key must be less than number of "
             "columns.");
@@ -173,26 +170,28 @@ inline size_t Data::get_n_unique_predictor_value(
 }
 
 
-inline size_t Data::get_max_n_unique_value() const {
+inline size_t Data::get_max_n_unique_value() const noexcept {
     return std::max((size_t)3ull, max_n_unique_value);
     /* NOTE: unsure why lower bound of three */
 }
 
 
-inline dbl_vector Data::get_response_values() const {
+inline const dbl_vector & Data::get_response_values() const {
 
-    const size_t n_sample = get_n_row();
-    dbl_vector result;
+    const size_t n_sample = n_row;
+    if (response_values.size() > 0)
+        return response_values;
 
     for (size_t sample_key = 0; sample_key != n_sample; ++sample_key) {
         const double value = get_y(sample_key, 0);
         const dbl_vector::const_iterator value_it = std::find(
-            result.cbegin(), result.cend(), value
+            response_values.cbegin(), response_values.cend(), value
         );
-        if (value_it == result.cend()) result.emplace_back(value);
+        if (value_it == response_values.cend())
+            response_values.emplace_back(value);
     }
 
-    return result;
+    return response_values;
 
 }
 
@@ -200,9 +199,9 @@ inline dbl_vector Data::get_response_values() const {
 inline void Data::new_response_index(const dbl_vector & response_values) const {
 
     response_index.clear();
-    response_index.reserve(get_n_row());
+    response_index.reserve(n_row);
 
-    for (size_t j = 0; j != get_n_row(); ++j) {
+    for (size_t j = 0; j != n_row; ++j) {
         const size_t value_key = std::distance(
             response_values.cbegin(),
             std::find(response_values.cbegin(),
@@ -218,13 +217,13 @@ inline void Data::new_response_index(const dbl_vector & response_values) const {
 }
 
 
-inline void Data::finalise_response_index() const {
+inline void Data::finalise_response_index() const noexcept {
     response_index.clear();
     response_index.shrink_to_fit();
 }
 
 
-inline const key_vector & Data::get_response_index() const {
+inline const key_vector & Data::get_response_index() const noexcept {
     return response_index;
 }
 
@@ -233,7 +232,7 @@ inline void Data::new_sample_keys_by_response() const {
 
     sample_keys_by_response.assign(response_index.size(), key_vector());
 
-    for (size_t j = 0; j != get_n_row(); ++j) {
+    for (size_t j = 0; j != n_row; ++j) {
         const size_t value_key = response_index[j];
         sample_keys_by_response[value_key].emplace_back(j);
     }
@@ -241,14 +240,14 @@ inline void Data::new_sample_keys_by_response() const {
 }
 
 
-inline void Data::finalise_sample_keys_by_response() const {
+inline void Data::finalise_sample_keys_by_response() const noexcept {
     sample_keys_by_response.clear();
     sample_keys_by_response.shrink_to_fit();
 }
 
 
 inline const std::vector<key_vector> &
-Data::get_sample_keys_by_response() const {
+Data::get_sample_keys_by_response() const noexcept {
     return sample_keys_by_response;
 }
 
@@ -271,14 +270,14 @@ inline void Data::new_permutation(const size_t seed) const {
 }
 
 
-inline void Data::finalise_permutation() const {
+inline void Data::finalise_permutation() const noexcept {
     permuted_sample_keys.clear();
     permuted_sample_keys.shrink_to_fit();
 }
 
 
 inline size_t Data::as_row_offset(const size_t sample_key,
-                                  const bool permute) const {
+                                  const bool permute) const noexcept {
     return !permute ? sample_key : permuted_sample_keys[sample_key];
 }
 

@@ -53,7 +53,7 @@ static void chk_int_fn(void * x) { R_CheckUserInterrupt(); }
 /** User interrupt from main R thread */
 struct R_user_interruptor : public interruptor {
     /** Call user-interrupt check at top level of execution. */
-    bool operator()() const;
+    bool operator()() const override;
 };
 
 

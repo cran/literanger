@@ -30,6 +30,7 @@
 #include "literanger/globals.h"
 /* required literanger class declarations */
 #include "literanger/Data.decl.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
@@ -42,28 +43,32 @@ struct ForestClassification : public Forest<ForestClassification> {
     public:
 
         /** Construct a classification forest.
-         * @param[in] response_values Unique values of the response in the order
-         * that they appear in the data.
-         * @param[in] response_weights An optional vector of weights for each
-         * value of response in @p response_values.
-         * @param[in] tree_parameters ... TODO:
          * @param[in] save_memory Indicator whether to aggressively release
          * memory and omit building an index (which takes up memory but speeds
          * up training). */
-        ForestClassification(const dbl_vector_ptr response_values,
-                             const dbl_vector_ptr response_weights,
-                             const std::vector<TreeParameters> tree_parameters,
-                             const bool save_memory);
+        ForestClassification(const bool save_memory);
 
-        /** @copydoc ForestClassification::ForestClassification(dbl_vector_ptr,dbl_vector_ptr,std::vector<TreeParameters>,bool)
-         * @param[in] trees ... TODO:
-         */
-        ForestClassification(const dbl_vector_ptr response_values,
-                             const dbl_vector_ptr response_weights,
-                             const std::vector<TreeParameters> tree_parameters,
-                             const bool save_memory,
-                             std::vector<std::unique_ptr<TreeBase>> && trees);
+        /** @copydoc ForestClassification::ForestClassification(bool,dbl_vector_ptr,dbl_vector_ptr)
+         * @param[in] n_predictor The number of predictors that will be set for
+         * every tree in the forest.
+         * @param[in] is_ordered An indicator for each predictor whether it is
+         * to be treated as ordered or not.
+         * @param[in] trees The (constructed) trees for the random forest.
+         * @param[in] response_values Unique values of the response in the order
+         * that they appear in the data. */
+        ForestClassification(const bool save_memory,
+                             const size_t n_predictor,
+                             const bool_vector_ptr is_ordered,
+                             std::vector<std::unique_ptr<TreeBase>> && trees,
+                             dbl_vector && response_values);
 
+        /** @name Simple accessors */
+        /*@{*/
+        const dbl_vector get_response_values() const noexcept;
+        /*@}*/
+
+        /** @name Enable cereal for ForestClassification. */
+        /**@{*/
         template <typename archive_type>
         void serialize(archive_type & archive);
 
@@ -72,6 +77,7 @@ struct ForestClassification : public Forest<ForestClassification> {
             archive_type & archive,
             cereal::construct<ForestClassification> & construct
         );
+        /**@}*/
 
 
     protected:
@@ -94,11 +100,16 @@ struct ForestClassification : public Forest<ForestClassification> {
          * values of the predictors are mapped to an index which is managed by
          * the @p data object.
          *
+         * @param[in] forest_parameters A container of TrainingParameters that
+         * are passed one-by-one to the tree-training method.
          * @param[in,out] data Data to train forest with, see literanger::Data
          * class for further details about format. Helper (mutable) containers
          * that are managed by this object are constructed, see details
          * above. */
-        void new_growth(const std::shared_ptr<const Data> data);
+        void new_growth(
+            const std::vector<TrainingParameters> & forest_parameters,
+            const std::shared_ptr<const Data> data
+        );
 
         /** Finalise the workspace for growth of the forest.
          *
@@ -110,16 +121,23 @@ struct ForestClassification : public Forest<ForestClassification> {
          * @param[in,out] data Data to train forest with, see literanger::Data
          * class for further details about format. Helper (mutable) containers
          * that are managed by this object are finalised. */
-        void finalise_growth(const std::shared_ptr<const Data> data);
+        void finalise_growth(
+            const std::shared_ptr<const Data> data
+        ) const noexcept;
 
         /** Plant and grow (train) a single classification tree in the forest.
-         * @param[in] data Data to train forest with, see literanger::Data class
-         * for further details about format.
-         * TODO: parameters
-         * @param[in] draw_split_weights Weighting to apply to each predictor
-         * when drawing the candidates for splitting nodes. */
-        void plant_tree(const std::shared_ptr<const Data> data,
-                        const TreeParameters & parameters);
+         * @param[in] save_memory Indicator whether to aggressively release
+         * memory and omit building an index (which takes up memory but speeds
+         * up training).
+         * @param[in] n_predictor The number of predictors that will be set for
+         * the tree.
+         * @param[in] is_ordered An indicator for each predictor whether it is
+         * to be treated as ordered or not. */
+        void plant_tree(
+            const bool save_memory,
+            const size_t n_predictor,
+            const cbool_vector_ptr is_ordered
+        );
 
         /** Prepare workspace for out-of-bag error estimation.
          *
@@ -141,7 +159,10 @@ struct ForestClassification : public Forest<ForestClassification> {
          * @param[in] data Data to train forest with, see literanger::Data class
          * for further details about format.
          * @returns The overall misclassification rate in out-of-bag samples. */
-        double finalise_oob_error(const std::shared_ptr<const Data> data);
+        double compute_oob_error(const std::shared_ptr<const Data> data);
+
+        /** Finalises out-of-bag error workspace. */
+        void finalise_oob_error() const noexcept;
 
         /** Calculate the out-of-bag predictions for one tree in the forest.
          * @param[in] tree_key The index of the tree to elicit predictions from.
@@ -181,7 +202,7 @@ struct ForestClassification : public Forest<ForestClassification> {
          * PredictionType::BAGGED - enables partial specialisation. */
         template <PredictionType prediction_type, typename result_type,
                   enable_if_bagged<prediction_type> = nullptr>
-        void finalise_predictions(result_type & result);
+        void finalise_predictions(result_type & result) const noexcept;
 
         /** Finalise imputation predictions of the forest.
          * @param[out] result The drawn predictions for each case.
@@ -192,7 +213,7 @@ struct ForestClassification : public Forest<ForestClassification> {
          * PredictionType::INBAG - enables partial specialisation. */
         template <PredictionType prediction_type, typename result_type,
                   enable_if_inbag<prediction_type> = nullptr>
-        void finalise_predictions(result_type & result);
+        void finalise_predictions(result_type & result) const noexcept;
 
         /** Finalise imputation predictions of the forest.
          * @param[out] result The terminal nodes of each tree for each case.
@@ -203,7 +224,7 @@ struct ForestClassification : public Forest<ForestClassification> {
          * PredictionType::NODES - enables partial specialisation. */
         template <PredictionType prediction_type, typename result_type,
                   enable_if_nodes<prediction_type> = nullptr>
-        void finalise_predictions(result_type & result);
+        void finalise_predictions(result_type & result) const noexcept;
 
         /** Calculate the predictions from one tree in the forest.
          * @param[in] tree_key The index of the tree to elicit predictions from.
@@ -223,34 +244,30 @@ struct ForestClassification : public Forest<ForestClassification> {
         void aggregate_one_item(const size_t item_key);
 
         /** Values of the response in the order that they appear in the data. */
-        const dbl_vector_ptr response_values;
-
-        /** Weights of response values (classes) when computing node impurity.
-         *
-         * Same ordering as in ForestClassification::response_values. */
-        const dbl_vector_ptr response_weights;
+        dbl_vector response_values  = dbl_vector();
 
         /** The number of unique response values. */
-        const size_t n_response_value = response_values->size();
+        size_t n_response_value = response_values.size();
 
-        /** A (workspace) container of the predicted responses for each case
-         * whenever that case was out-of-bag during training. */
-        std::vector<key_vector> oob_predictions;
+        /** A (workspace) container of the predicted responses for each row
+         * (case) whenever that row was out-of-bag during training. */
+        mutable std::vector<key_vector> oob_predictions;
 
         /** A (workspace) container of the predicted responses by trees for
-         * each case when prediction type is PredictionType::BAGGED. */
-        std::vector<key_vector> predictions_to_bag;
+         * each row (case) when prediction type is PredictionType::BAGGED. */
+        mutable std::vector<key_vector> predictions_to_bag;
 
-        /** A (workspace) container of indices of cases that will be predicted
-         * by each tree when prediction type is PredictionType::INBAG. */
-        std::vector<key_vector> prediction_keys_by_tree;
+        /** A (workspace) container of row-indices (cases) that will be
+         * predicted by each tree when prediction type is
+         * PredictionType::INBAG. */
+        mutable std::vector<key_vector> prediction_keys_by_tree;
 
         /** A (workspace) container of the predicted terminal nodes for each
-         * case prediction type is PredictionType::NODES. */
-        std::vector<key_vector> prediction_nodes;
+         * row (case) when prediction type is PredictionType::NODES. */
+        mutable std::vector<key_vector> prediction_nodes;
 
         /** Container for the final bagged (or otherwise) predictions. */
-        dbl_vector aggregate_predictions;
+        mutable dbl_vector aggregate_predictions;
 
 
 };

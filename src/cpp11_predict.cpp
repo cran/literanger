@@ -70,7 +70,7 @@ cpp11::list cpp11_predict(
         cpp11::as_cpp<std::string>(object["tree_type"])
     );
     cpp11::external_pointer<ForestBase> forest = object["cpp11_ptr"];
-    const size_t n_tree = forest->get_tree_parameters().size();
+    const size_t n_tree = forest->size();
 
     std::shared_ptr<Data> data { };
 
@@ -112,23 +112,20 @@ cpp11::list cpp11_predict(
         switch(as_prediction_type(prediction_type)) {
         case BAGGED: {
             dbl_vector predictions;
-            forest_impl.template predict<BAGGED>(data, seed, predict_n_thread,
-                                                 user_interrupt,
-                                                 predictions, print_out);
+            forest_impl.predict<BAGGED>(data, seed, predict_n_thread,
+                                        user_interrupt, predictions, print_out);
             result.push_back({"values"_nm=predictions});
         } break;
         case INBAG: {
             dbl_vector predictions;
-            forest_impl.template predict<INBAG>(data, seed, predict_n_thread,
-                                                user_interrupt,
-                                                predictions, print_out);
+            forest_impl.predict<INBAG>(data, seed, predict_n_thread,
+                                       user_interrupt, predictions, print_out);
             result.push_back({"values"_nm=predictions});
         } break;
         case NODES: {
             std::vector<key_vector> predictions;
-            forest_impl.template predict<NODES>(data, seed, predict_n_thread,
-                                                user_interrupt,
-                                                predictions, print_out);
+            forest_impl.predict<NODES>(data, seed, predict_n_thread,
+                                       user_interrupt, predictions, print_out);
             nodes_matrix_t terminal_nodes(n_case, n_tree);
             for (size_t j = 0; j != n_case; ++j)
                 std::copy(predictions[j].cbegin(), predictions[j].cend(),
@@ -143,23 +140,20 @@ cpp11::list cpp11_predict(
         switch(as_prediction_type(prediction_type)) {
         case BAGGED: {
             dbl_vector predictions;
-            forest_impl.template predict<BAGGED>(data, seed, predict_n_thread,
-                                                 user_interrupt,
-                                                 predictions, print_out);
+            forest_impl.predict<BAGGED>(data, seed, predict_n_thread,
+                                        user_interrupt, predictions, print_out);
             result.push_back({"values"_nm=predictions});
         } break;
         case INBAG: {
             dbl_vector predictions;
-            forest_impl.template predict<INBAG>(data, seed, predict_n_thread,
-                                                user_interrupt,
-                                                predictions, print_out);
+            forest_impl.predict<INBAG>(data, seed, predict_n_thread,
+                                       user_interrupt, predictions, print_out);
             result.push_back({"values"_nm=predictions});
         } break;
         case NODES: {
             std::vector<key_vector> predictions;
-            forest_impl.template predict<NODES>(data, seed, predict_n_thread,
-                                                user_interrupt,
-                                                predictions, print_out);
+            forest_impl.predict<NODES>(data, seed, predict_n_thread,
+                                       user_interrupt, predictions, print_out);
             nodes_matrix_t terminal_nodes(n_case, n_tree);
             for (size_t j = 0; j != n_case; ++j)
                 std::copy(predictions[j].cbegin(), predictions[j].cend(),

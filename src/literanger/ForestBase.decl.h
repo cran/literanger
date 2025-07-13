@@ -32,7 +32,7 @@
 /* required literanger class declarations */
 #include "literanger/Data.decl.h"
 #include "literanger/TreeBase.decl.h"
-#include "literanger/TreeParameters.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
@@ -42,9 +42,10 @@ struct ForestBase {
 
     public:
 
-        using dbl_vector_ptr = std::shared_ptr<dbl_vector>;
-        using name_vector = std::vector<std::string>;
-        using key_vector_ptr = std::shared_ptr<key_vector>;
+        using dbl_vector_ptr  = std::shared_ptr<dbl_vector>;
+        using cdbl_vector_ptr = std::shared_ptr<const dbl_vector>;
+        using bool_vector_ptr  = std::shared_ptr<bool_vector>;
+        using cbool_vector_ptr = std::shared_ptr<const bool_vector>;
 
         /** Non-copyable. @param[in] rhs right-hand side of copy. */
         ForestBase(const ForestBase & x) = delete;
@@ -53,93 +54,112 @@ struct ForestBase {
         /** Virtual destructor for pure-abstract class. */
         virtual ~ForestBase() = default;
 
+        /** @name Simple accessors */
+        /*@{*/
+        size_t size() const noexcept;
+
+        size_t get_n_predictor() const noexcept;
+
+        cbool_vector_ptr get_is_ordered() const noexcept;
+
+        const std::vector<std::unique_ptr<TreeBase>> &
+        peek_trees() const noexcept;
+        /*@}*/
+
         /** Seed the pseudo-random number generator engine.
          * @param[in] seed Value to seed ForestBase::gen with. */
         void seed_gen(const size_t seed);
 
         /** Plant and grow (train) trees in a random forest using supplied data.
+         * @param[in] n_predictor The number of predictors that will be set for
+         * every tree in the forest.
+         * @param[in] is_ordered Indicators for each predictor whether it is
+         * ordered or not.
+         * @param[in] forest_parameters A container of TrainingParameters that
+         * are passed one-by-one to the tree-training method.
          * @param[in] data Data to train forest with, see literanger::Data class
          * for further details about format.
-         * @param[in] case_weights The weight for each case (row) in training.
+         * @param[in] case_weights The weight for each observation (row) during
+         * training.
          * @param[in] seed The seed for the pseudo-random number generator
          * engine.
-         * @param[in] n_thread Number of threads to use when growing and
-         * predicting.
-         * @param[in] compute_oob_error Indicator of whether to estimate the
-         * out-of-bag error or not.
+         * @param[in] n_thread Number of threads to split trees across during
+         * growth (training) and prediction (out-of-bag error).
+         * @param[in] compute_oob_error Indicate whether to estimate the
+         * out-of-bag error during training or not.
          * @param[in] user_interrupt An operator that checks for user interrupt.
          * @param[out] oob_error The value of the out-of-bag error if requested.
          * @param[out] print_out A toggle-able printer for outputting progress
-         * when training or predicting. */
-        virtual void plant(const std::shared_ptr<const Data> data,
-                           const dbl_vector_ptr case_weights,
-                           const size_t seed,
-                           const size_t n_thread,
-                           const bool compute_oob_error,
-                           const interruptor & user_interrupt,
-                           double & oob_error,
-                           toggle_print & print_out) = 0;
+         * during training and prediction. */
+        virtual void plant(
+            const size_t n_predictor,
+            const bool_vector_ptr is_ordered,
+            const std::vector<TrainingParameters> & forest_parameters,
+            const std::shared_ptr<const Data> data,
+            const cdbl_vector_ptr case_weights,
+            const size_t seed,
+            const size_t n_thread,
+            const bool compute_oob_error,
+            const interruptor & user_interrupt,
+            double & oob_error,
+            toggle_print & print_out
+        ) = 0;
 
-        const std::vector<TreeParameters> & get_tree_parameters() const;
 
+        /** @name Enable cereal for ForestBase. */
+        /**@{*/
         template <typename archive_type>
         void serialize(archive_type & archive);
+        /**@}*/
 
 
     protected:
 
         /** Construct a random forest object.
-         * @param[in] tree_type The type of tree (classification or regression)
-         * to grow in the random forest.
-         * @param[in] tree_parameters ...
-         * @param[in] save_memory Indicator whether to aggressively release
-         * memory and omit building an index (which takes up memory but speeds
-         * up training). */
-        ForestBase(const TreeType tree_type,
-                   const std::vector<TreeParameters> tree_parameters,
-                   const bool save_memory);
+         * @param[in] save_memory Indicate whether to aggressively release
+         * memory and omit building predictor index. */
+        ForestBase(const bool save_memory);
 
-        /** @copydoc ForestBase::ForestBase(TreeType,std::vector<TreeParameters>,bool)
+        /** @copydoc ForestBase::ForestBase(bool)
+         * @param[in] n_predictor The number of predictors that will be set for
+         * every tree in the forest.
+         * @param[in] is_ordered Indicators for each predictor whether it is
+         * ordered or not.
          * @param[in] trees The (constructed) trees for the random forest. */
-        ForestBase(const TreeType tree_type,
-                   const std::vector<TreeParameters> tree_parameters,
-                   const bool save_memory,
+        ForestBase(const bool save_memory,
+                   const size_t n_predictor,
+                   const bool_vector_ptr is_ordered,
                    std::vector<std::unique_ptr<TreeBase>> && trees);
 
-        /** Show the proportion of completed events in a phase.
+        /** Show the proportion of completed events in a particular phase.
          * @param[in] operation A suffix string that describes the current
-         * process (e.g. "Growing trees").
+         * phase or process (e.g. "Growing trees").
          * @param[in] max_events The total number of events in the process.
-         * @param[in] n_thread Number of threads to use when growing and
-         * predicting.
+         * @param[in] n_thread Number of threads in use.
          * @param[in] user_interrupt An operator that checks for user interrupt.
          * @param[out] print_out A toggle-able printer for outputting progress
-         * when training or predicting.
-         */
+         * during training and prediction. */
         void show_progress(std::string operation, const size_t max_events,
                            const size_t n_thread,
                            const interruptor & user_interrupt,
                            toggle_print & print_out);
 
-        /** The type of tree grown in the forest.
-         *
-         * FIXME: This is used in place of RTTI to dynamically case for
-         * prediction. */
-        const TreeType tree_type;
-
-        /** Number of trees in forest. */
-        const size_t n_tree;
-
-        // TODO: allow non-const???
-        /** The (generic) parameters for each tree in the forest. */
-        const std::vector<TreeParameters> tree_parameters;
 
         /** Aggressively release resources and do not construct predictor
-         * indices. */
+         * index. */
         const bool save_memory;
 
+        /** Number of predictors in the random forest model; zero when forest
+         * not yet trained. */
+        size_t n_predictor;
+
+        /** Indicators for each predictor whether it is ordered; points to
+         * nullptr when forest not yet trained. */
+        bool_vector_ptr is_ordered;
+
         /** Pseudo-random number generator for bootstrapping and also for
-         * seeding each tree's pseudo-rng during the growth phase. */
+         * seeding each tree's own pseudo-rng during the growth (training)
+         * phase. */
         std::mt19937_64 gen;
 
         /** Count of the completed events in a 'queue', e.g. the number of
@@ -155,7 +175,7 @@ struct ForestBase {
         /** Condition variable for the progress report loop. */
         std::condition_variable condition_variable;
 
-        /** Intervals of work to perform in each thread. */
+        /** Intervals (usually trees) of work to perform in each thread. */
         count_vector work_intervals;
 
         /** A container for the trees in the forest. */
@@ -170,6 +190,7 @@ struct ForestBase {
  * @returns A unique pointer to the constructed random forest.
  * @tparam T The derived random forest type to construct.
  * @tparam ArgsT The argument types of a constructor for the derived type.
+ * @see ForestBase::ForestBase(std::vector<TreeParameters>,bool)
  */
 template <typename T, typename... ArgsT>
 std::unique_ptr<ForestBase> make_forest(ArgsT &&... args);

@@ -4,7 +4,7 @@
 \alias{read_literanger}
 \title{De-serialize random forest}
 \usage{
-read_literanger(file, verbose = TRUE, ...)
+read_literanger(file, verbose = FALSE, ...)
 }
 \arguments{
 \item{file}{A connection or the name of a file containing a serialized

@@ -26,6 +26,7 @@ namespace literanger {
 
 using count_vector = std::vector<size_t>;
 using key_vector = std::vector<size_t>;
+using bool_vector = std::vector<bool>;
 using dbl_vector = std::vector<double>;
 using ull_bitenc = std::bitset<std::numeric_limits<unsigned long long>::digits>;
 
@@ -33,17 +34,17 @@ using ull_bitenc = std::bitset<std::numeric_limits<unsigned long long>::digits>;
 #define M_PI 3.14159265358979323846
 #endif
 
-const size_t DEFAULT_N_THREAD = 0;
+constexpr size_t DEFAULT_N_THREAD = 0;
 
-const size_t DEFAULT_MIN_SPLIT_N_SAMPLE_CLASSIFICATION = 2;
-const size_t DEFAULT_MIN_LEAF_N_SAMPLE_CLASSIFICATION = 1;
-const size_t DEFAULT_MIN_SPLIT_N_SAMPLE_REGRESSION = 5;
-const size_t DEFAULT_MIN_LEAF_N_SAMPLE_REGRESSION = 1;
+constexpr size_t DEFAULT_MIN_SPLIT_N_SAMPLE_CLASSIFICATION = 2;
+constexpr size_t DEFAULT_MIN_LEAF_N_SAMPLE_CLASSIFICATION = 1;
+constexpr size_t DEFAULT_MIN_SPLIT_N_SAMPLE_REGRESSION = 5;
+constexpr size_t DEFAULT_MIN_LEAF_N_SAMPLE_REGRESSION = 1;
 
-const double STATUS_INTERVAL = 30.0;
+constexpr double STATUS_INTERVAL = 30.0;
 
 // Threshold for q value split method switch
-const double Q_THRESHOLD = 0.02;
+constexpr double Q_THRESHOLD = 0.02;
 
 
 } /* namespace literanger */

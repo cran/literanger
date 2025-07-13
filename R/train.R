@@ -172,31 +172,19 @@
 #'
 #' @return Object of class `literanger` with elements:
 #' \describe{
-#'   \item{`predictor_names`}{The names of the predictor variables in the
-#'     model.}
-#'   \item{`names_of_unordered`}{The names of predictors that are unordered.}
-#'   \item{`tree_type`}{The type of tree in the forest.}
-#'   \item{`n_tree`}{The number of trees that were trained.}
-#'   \item{`n_try`}{The number of predictors drawn as candidates for each
-#'     split.}
-#'   \item{`split_rule`}{The name of the split metric used.}
-#'   \item{`max_depth`}{The maximum allowed depth of a tree in the forest.}
-#'   \item{`min_metric_decrease`}{The minimum decrease in the metric for an
-#'     acceptable split (equal to negative @p alpha for maximally selected
-#'     rank statistics, else zero).}
-#'   \item{`min_split_n_sample`}{The minimum number of in-bag samples in a node
-#'     prior to splitting.}
-#'   \item{`min_leaf_n_sample`}{The minimum number of in-bag samples in a leaf
-#'     node.}
-#'   \item{`seed`}{The seed supplied to the C++ library.}
+#'   \item{`tree_type`}{The type of tree in the forest, either classification
+#'     or regression.}
+#'   \item{`n_tree`}{The number of trees in the forest.}
+#'   \item{`training`}{The parameters for training that were passed at the time
+#'     the forest was trained.}
+#'   \item{`predictors`}{A list with the names of the predictors, the names of
+#'     the unordered predictors, and the levels of any factors.}
+#'   \item{`response`}{The levels and type indicator (e.g. logical, factor, etc)
+#'     of the response.}
 #'   \item{`oob_error`}{The misclassification rate or the mean square error
 #'     using out-of-bag samples.}
 #'   \item{`cpp11_ptr`}{An external pointer to the trained forest. DO NOT
 #'     MODIFY.}
-#'   \item{`response_values`}{Classification only: the values of the response in
-#'     the order they appear in the data.}
-#'   \item{`response_levels`}{Classification only: the labels for the response
-#'     in the order they appear in the data.}
 #' }
 #'
 #' @examples
@@ -207,8 +195,8 @@
 #' train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 #' iris_train <- iris[train_idx, ]
 #' iris_test <- iris[-train_idx, ]
-#' rg_iris <- train(data=iris_train, response_name="Species")
-#' pred_iris <- predict(rg_iris, newdata=iris_test)
+#' lr_iris <- train(data=iris_train, response_name="Species")
+#' pred_iris <- predict(lr_iris, newdata=iris_test)
 #' table(iris_test$Species, pred_iris$values)
 #'
 #' @author stephematician <stephematician@gmail.com>, Marvin N Wright (original
@@ -551,10 +539,12 @@ train <- function(
 
   # Class weights: NULL for no weights (all 1)
     if (identical(response_weights, numeric())) {
-        if (is.factor(y)) {
-            response_weights <- rep(1, nlevels(droplevels(y)))
-        } else
-            response_weights <- rep(1, length(unique(y)))
+        if (tree_type %in% "classification") {
+            if (is.factor(y)) {
+                response_weights <- rep(1, nlevels(droplevels(y)))
+            } else
+                response_weights <- rep(1, length(unique(y)))
+        }
     } else {
         if (!(tree_type %in% "classification"))
             stop("'response_weights' argument only valid for classification ",
@@ -604,7 +594,9 @@ train <- function(
 
     y_mat <- as.matrix(as.numeric(y))
 
-  # Call the library's train function using cpp11
+  # Call the library's train function using cpp11; returns a list with
+  # cpp11_ptr, min_split_n_sample, min_leaf_n_sample, n_try, oob_error, and
+  # tree_type.
     result <- cpp11_train(
       # data
         x, y_mat, sparse_x, case_weights,
@@ -629,14 +621,43 @@ train <- function(
         verbose
     )
 
-    if (is.factor(y)) {
-        result$response_levels <- levels(y)
-        result$response_ordered <- is.ordered(y)
-        result$response_is_character <- response_is_character
-    }
-    if (is.logical(y)) result$response_is_logical <- TRUE
+  # get parameters that may have been decided via literanger core
+    n_try <- result$n_try
+    min_split_n_sample <- result$min_split_n_sample
+    min_leaf_n_sample <- result$min_leaf_n_sample
+  # clear redundent items
+    result$n_try <- result$min_split_n_sample <-
+        result$min_leaf_n_sample <- NULL
 
-    if (!is.null(predictor_levels)) result$predictor_levels <- predictor_levels
+  # add training arguments
+    result$n_tree <- n_tree
+    result$training <- list(
+        replace=replace, sample_fraction=sample_fraction, n_try=n_try,
+        draw_predictor_weights=draw_predictor_weights,
+        names_of_always_draw=names_of_always_draw,
+        split_rule=split_rule, max_depth=max_depth,
+        min_split_n_sample=min_split_n_sample,
+        min_leaf_n_sample=min_leaf_n_sample,
+        response_weights=response_weights, n_random_split=n_random_split,
+        alpha=alpha, min_prop=min_prop, seed=seed
+    )
+
+  # add information about predictors
+    result$predictors <- list(
+        names=predictor_names,
+        names_of_unordered=names_of_unordered
+    )
+    if (!is.null(predictor_levels)) result$predictors$levels <- predictor_levels
+
+  # add information about response variable
+    result$response <- list()
+
+    if (is.factor(y)) {
+        result$response$levels <- levels(y)
+        result$response$is_ordered <- is.ordered(y)
+        result$response$is_character <- response_is_character
+    }
+    if (is.logical(y)) result$response$is_logical <- TRUE
 
     class(result) <- "literanger"
 

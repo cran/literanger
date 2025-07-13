@@ -34,7 +34,7 @@ struct Data {
         /** Construct data with column names.
          * @param[in] n_row The number of observations.
          * @param[in] n_col The number of predictors. */
-        Data(const size_t n_row, const size_t n_col);
+        Data(const size_t n_row, const size_t n_col) noexcept;
 
         /** Non-copyable. @param[in] rhs right-hand side of copy. */
         Data(const Data & rhs) = delete;
@@ -70,15 +70,15 @@ struct Data {
                              const size_t column) const noexcept = 0;
 
         /** Get the number of predictors a.k.a. number of columns in data. */
-        size_t get_n_col() const;
+        size_t get_n_col() const noexcept;
 
         /** Get the number of observations i.e. number of rows in the data. */
-        size_t get_n_row() const;
+        size_t get_n_row() const noexcept;
 
         /** Get all values for predictor (_sorted_, no duplicates) for a given
          * subset of observations.
          * @param[out] all_values Container to hold values.
-         * @param[in] sample_keys The keys (row offsets) corresponding to each
+         * @param[in] sample_keys The keys (row index) corresponding to each
          * observation.
          * @param[in] predictor_key The predictor from which values will be
          * extracted (a.k.a. column offset).
@@ -94,7 +94,7 @@ struct Data {
         /** Get the least and greatest value of a predictor for a given subset
          * of observations.
          * @param[out] all_values Container to store values.
-         * @param[in] sample_keys The keys (row offsets) corresponding to each
+         * @param[in] sample_keys The keys (row index) corresponding to each
          * observation.
          * @param[in] predictor_key The predictor from which values will be
          * extracted (a.k.a. column offset).
@@ -107,96 +107,96 @@ struct Data {
                                const size_t start, const size_t end,
                                const bool permute = false) const;
 
-        /** Construct an index of unique values  for all predictors.
+        /** Initialise an index for each predictor using its unique values.
          *
          * For each predictor; make a container with the (ordered/sorted) unique
          * values, and; make a index for the observations which specifies the
          * offset into the container (of unique values) for each observation. */
         void new_predictor_index() const;
 
-        void finalise_predictor_index() const;
+        /** Clear the index for each predictor */
+        void finalise_predictor_index() const noexcept;
 
-        /** Indicator of whether unique-value index has been constructed for the
-         * predictors. */
-        bool has_predictor_index() const;
+        /** Indicator that index for each predictor is available */
+        bool has_predictor_index() const noexcept;
 
-        /** Get the index into the unique-value (_sorted_) container of a
-         * predictor for an observation.
-         * @param[in] sample_key The observation key, i.e. the row offset in the
-         * non-permuted or permuted data set.
-         * @param[in] predictor_key The predictor key, a.k.a the column offset
-         * in the original dataset.
-         * @param[in] permute Indicator whether to use non-permuted (false) or
-         * permuted (true) predictor data.
-         * @returns The index (offset) into the unique-value container for the
-         * selected predictor and row in the dataset (or permutation thereof if
-         * requested). */
-        size_t get_index(const size_t sample_key,
-                         const size_t predictor_key,
-                         const bool permute = false) const;
+        /** Get the offset into the (_sorted_) unique values of a predictor for
+         * a given observation.
+         * @param[in] sample_key The sample (row offset) in the non-permuted
+         *  or permuted data set.
+         * @param[in] predictor_key The predictor (column offset) in the
+         * original data set.
+         * @param[in] permute Indicator to use non-permuted (false) or permuted
+         * (true) predictors.
+         * @returns The index (offset) into the unique values of the predictor.
+         */
+        size_t get_unique_key(const size_t sample_key,
+                              const size_t predictor_key,
+                              const bool permute = false) const;
 
-        /** @copydoc Data::get_index(size_t,size_t,bool) */
-        size_t raw_get_index(const size_t sample_key,
-                             const size_t predictor_key,
-                             const bool permute = false) const noexcept;
+        /** @copydoc Data::get_unique_key */
+        size_t rawget_unique_key(const size_t sample_key,
+                                 const size_t predictor_key,
+                                 const bool permute = false) const noexcept;
 
         /** Get the recorded value of a predictor given the offset into the
          * unique-value (_sorted_) container.
          * @param[in] predictor_key The column offset a.k.a. predictor key.
          * @param[in] offset The offset into the unique-value container for the
          * predictor. */
-        double get_unique_predictor_value(const size_t predictor_key,
-                                          const size_t offset) const;
+        double get_unique_value(const size_t predictor_key,
+                                const size_t offset) const;
 
         /** Get the number of unique values observed for a predictor.
          * @param[in] predictor_key The column offset a.k.a. predictor key. */
-        size_t get_n_unique_predictor_value(const size_t predictor_key) const;
+        size_t get_n_unique_value(const size_t predictor_key) const;
 
-        /** Maximum number of unique values across all predictors. */
-        size_t get_max_n_unique_value() const;
+        /** Maximum number of unique values observed across all predictors. */
+        size_t get_max_n_unique_value() const noexcept;
 
         /** Get the unique values of the response in order of appearance. */
-        dbl_vector get_response_values() const;
+        const dbl_vector & get_response_values() const;
 
-        /** Store a new container of response keys, for each observation, for a
-         * given ordering of the response values.
+        /** Initialise a new container of response keys, for each observation,
+         * for a given ordering (index) of the response values.
          * @param[in] response_values A container of response values sorted in
          * the proposed order. */
         void new_response_index(const dbl_vector & response_values) const;
 
-        /** Clear the index container of response keys. */
-        void finalise_response_index() const;
+        /** Clear the response-key container. */
+        void finalise_response_index() const noexcept;
 
-        /** Get the index container of response keys. */
-        const key_vector & get_response_index() const;
+        /** Get the response-key container. */
+        const key_vector & get_response_index() const noexcept;
 
-        /** Store an index container of observation keys categorised by the
+        /** Initialise a container of observation keys categorised by the
          * response key. */
         void new_sample_keys_by_response() const;
 
-        /** Clear the categorised (index) observation keys container. */
-        void finalise_sample_keys_by_response() const;
+        /** Clear the categorised observation-keys container. */
+        void finalise_sample_keys_by_response() const noexcept;
 
-        /** Get the categorised observation keys (index) container. */
-        const std::vector<key_vector> & get_sample_keys_by_response() const;
+        /** Get the categorised observation-keys container. */
+        const std::vector<key_vector> &
+        get_sample_keys_by_response() const noexcept;
 
-        /** Create a permutation of the observation keys.
+        /** Initialise a permutation of the observation keys.
          * @param[in] seed The seed used for pseudo-random permutation. */
         void new_permutation(const size_t seed) const;
 
         /** Clear the permutation of the observation keys. */
-        void finalise_permutation() const;
+        void finalise_permutation() const noexcept;
 
 
     protected:
 
-        /** Convert a sample key into a row offset in the original dataset.
+        /** Convert an observation key into a row offset in the data set.
          * @param[in] sample_key The observation key, i.e. the row offset in the
          * non-permuted or permuted data set.
          * @param[in] permute Indicator whether @p sample_key is a row offset
          * in the original dataset (false) or the permuted dataset (true). */
         size_t as_row_offset(const size_t sample_key,
-                             const bool permute = false) const;
+                             const bool permute = false) const noexcept;
 
         /** Number of rows, a.k.a. observations, in dataset. */
         const size_t n_row = 0;
@@ -210,12 +210,15 @@ struct Data {
         /** The maximum number of unique values for any predictor. */
         mutable size_t max_n_unique_value = 0ull;
 
-        /** Each observed value (of a predictor) is given an index into the
-         * unique values for that predictor. */
+        /** The key (offset) into the unique-value index for each observed
+         * value of a predictor, stored as a vector. */
         mutable key_vector predictor_index;
 
-        /** A container of the offset into `response_values` for each observed
-         * response. */
+        /** A container of sorted values of the response. */
+        mutable dbl_vector response_values;
+
+        /** A container of the key (offset) for each observation into the sorted
+         * values of the response. */
         mutable key_vector response_index;
 
         /** A container of the observation key (row offset) stored by the key

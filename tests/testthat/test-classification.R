@@ -17,10 +17,16 @@ test_that("tree type is 'classification'", {
     expect_equal(rf_class_mat$tree_type, "classification")
 })
 
-test_that("trained forest object has 'response_values' item", {
-    expect_true(hasName(rf_class_df, "response_values"))
-    expect_true(hasName(rf_ordered_df, "response_values"))
-    expect_true(hasName(rf_class_mat, "response_values"))
+test_that("trained forest object has 'response' item", {
+    expect_true(hasName(rf_class_df, "response"))
+    expect_true(hasName(rf_ordered_df, "response"))
+    expect_true(hasName(rf_class_mat, "response"))
+})
+
+test_that("trained forest object has 'training' item", {
+    expect_true(hasName(rf_class_df, "training"))
+    expect_true(hasName(rf_ordered_df, "training"))
+    expect_true(hasName(rf_class_mat, "training"))
 })
 
 test_that("can use 'save_memory' option when training", {
@@ -154,9 +160,9 @@ test_that("default split metric is 'gini'", {
     set.seed(42)
     rf_class_gini <- train(data=iris, response_name="Species", split_rule="gini")
 
-    expect_equal(rf_class_df$split_rule, "gini")
-    expect_equal(rf_class_mat$split_rule, "gini")
-    expect_equal(rf_class_gini$split_rule, "gini")
+    expect_equal(rf_class_df$training$split_rule, "gini")
+    expect_equal(rf_class_mat$training$split_rule, "gini")
+    expect_equal(rf_class_gini$training$split_rule, "gini")
     expect_equal(rf_class_df$oob_error, rf_class_gini$oob_error)
     expect_equal(rf_class_mat$oob_error, rf_class_gini$oob_error)
 })

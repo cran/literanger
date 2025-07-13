@@ -33,6 +33,7 @@
 /* required literanger class definitions */
 #include "literanger/Data.defn.h"
 #include "literanger/TreeBase.defn.h"
+#include "literanger/TrainingParameters.h"
 
 
 namespace literanger {
@@ -54,7 +55,8 @@ void Tree<ImplT>::predict(const std::shared_ptr<const Data> data,
 
     size_t node_key = 0, depth = 0;
 
-    while (!max_depth || depth != max_depth) {
+  /* Check that key is valid and that we have not entered a loop */
+    while (node_key < left_children.size() && depth < left_children.size()) {
 
       /* Terminal node */
         if (left_children[node_key] == 0 && right_children[node_key] == 0)
@@ -84,10 +86,10 @@ void Tree<ImplT>::predict(const std::shared_ptr<const Data> data,
 
     }
 
-    if (max_depth && depth == max_depth &&
-            !(left_children[node_key] == 0 && right_children[node_key] == 0))
-        throw std::runtime_error("Prediction failure tree does not obey "
-            "maximum depth constraint.");
+    if (node_key >= left_children.size())
+        throw std::runtime_error("Unexpected node identifier in tree");
+    if (depth >= left_children.size())
+        throw std::runtime_error("Unexpected loop detected in \'tree\'");
 
   /* Get a prediction from this tree */
     tree_impl.template predict_from_inbag<prediction_type>(node_key, result);
@@ -97,9 +99,8 @@ void Tree<ImplT>::predict(const std::shared_ptr<const Data> data,
 
 template <typename ImplT>
 bool Tree<ImplT>::push_best_split(
-    const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
+    const size_t node_key, const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     const key_vector & split_candidate_keys
 ) {
 
@@ -107,19 +108,19 @@ bool Tree<ImplT>::push_best_split(
     size_t best_split_key = 0;
 
   /* Prepares aggregates such as the count by response-value */
-    new_node_aggregates(node_key, data, sample_keys);
+    new_node_aggregates(node_key, parameters.split_rule, data, sample_keys);
 
-    switch (split_rule) {
+    switch (parameters.split_rule) {
     case EXTRATREES: {
         for (const size_t split_key : split_candidate_keys) {
             if ((*is_ordered)[split_key]) {
                 best_decrease_by_value_extratrees(
-                    split_key, node_key, data, sample_keys,
+                    split_key, node_key, parameters, data, sample_keys,
                     best_decrease, best_split_key, best_value
                 );
             } else {
                 best_decrease_by_value_extratrees_unordered(
-                    split_key, node_key, data, sample_keys,
+                    split_key, node_key, parameters, data, sample_keys,
                     best_decrease, best_split_key, best_value
                 );
             }
@@ -132,23 +133,23 @@ bool Tree<ImplT>::push_best_split(
                 const size_t n_sample_node = get_n_sample_node(node_key);
                 const double q = (double)n_sample_node / (
                     data->has_predictor_index() ?
-                        (double)data->get_n_unique_predictor_value(split_key) :
+                        (double)data->get_n_unique_value(split_key) :
                         INFINITY
                 );
                 if (!data->has_predictor_index() || q < Q_THRESHOLD) {
                     best_decrease_by_value_smallq(
-                        split_key, node_key, data, sample_keys,
+                        split_key, node_key, parameters, data, sample_keys,
                         best_decrease, best_split_key, best_value
                     );
                 } else {
                     best_decrease_by_value_largeq(
-                        split_key, node_key, data, sample_keys,
+                        split_key, node_key, parameters, data, sample_keys,
                         best_decrease, best_split_key, best_value
                     );
                 }
             } else {
                 best_decrease_by_value_unordered(
-                    split_key, node_key, data, sample_keys,
+                    split_key, node_key, parameters, data, sample_keys,
                     best_decrease, best_split_key, best_value
                 );
             }
@@ -156,7 +157,7 @@ bool Tree<ImplT>::push_best_split(
     } break;
     case MAXSTAT: {
         double best_statistic = -INFINITY;
-        std::vector<double> p_values, keys;
+        dbl_vector p_values, keys;
         p_values.reserve(split_candidate_keys.size());
         keys.reserve(split_candidate_keys.size());
 
@@ -166,7 +167,7 @@ bool Tree<ImplT>::push_best_split(
                     "statistics metric not compatible with partition approach "
                     "to unordered predictors.");
             const double p_value = best_statistic_by_value(
-                split_key, node_key, data, sample_keys,
+                split_key, node_key, parameters, data, sample_keys,
                 best_statistic, best_split_key, best_value
             );
             if (p_value >= 0) {
@@ -187,7 +188,7 @@ bool Tree<ImplT>::push_best_split(
   /* Clean up aggregate data */
     finalise_node_aggregates();
 
-    if (best_decrease < min_metric_decrease) return false;
+    if (best_decrease < parameters.min_metric_decrease) return false;
 
     split_keys[node_key] = best_split_key;
     split_values[node_key] = best_value;
@@ -200,11 +201,12 @@ bool Tree<ImplT>::push_best_split(
 template <typename ImplT>
 void Tree<ImplT>::best_decrease_by_value_extratrees(
     const size_t split_key, const size_t node_key,
+    const TrainingParameters & parameters,
     const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_decrease, size_t & best_split_key, double & best_value
 ) {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
 
@@ -217,9 +219,9 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
 
   /* FIXME: should check n_random_split > 0? */
     candidate_values.clear();
-    candidate_values.reserve(n_random_split);
+    candidate_values.reserve(parameters.n_random_split);
     std::uniform_real_distribution<double> U_rng(min, max);
-    for (size_t j = 0; j != n_random_split; ++j)
+    for (size_t j = 0; j != parameters.n_random_split; ++j)
         candidate_values.emplace_back(U_rng(gen));
     std::sort(candidate_values.begin(), candidate_values.end());
   /* Final element is never considered for splitting in worker. */
@@ -230,12 +232,16 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
 
   /* When a new best decrease is found, use the exact corresponding candidate
    * value as the new best value to split on. */
-    auto update_best_value = [&](size_t j){ best_value = candidate_values[j]; };
+    auto update_best_value = [&](const size_t j){
+        best_value = candidate_values[j];
+    };
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
+    prepare_candidate_loop_via_value(split_key, node_key, parameters.split_rule,
+                                     data, sample_keys);
 
-    tree_impl.best_decrease_by_real_value(
+    tree_impl.template best_decrease_by_real_value<LOGRANK>(
         split_key, n_sample_node, n_candidate_value,
+        parameters.min_leaf_n_sample,
         best_decrease, best_split_key, update_best_value
     );
 
@@ -247,16 +253,16 @@ void Tree<ImplT>::best_decrease_by_value_extratrees(
 template <typename ImplT>
 void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
     const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
+    const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_decrease, size_t & best_split_key, double & best_value
 ) {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
     const size_t n_candidate_value =
-        data->get_n_unique_predictor_value(split_key);
+        data->get_n_unique_value(split_key);
 
     ull_bitenc is_in_node, is_ex_node;
     for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
@@ -270,7 +276,7 @@ void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
   /* Number of unique partitions is equal to the number of different ways
    * we can select factor levels modulo the equivalence of negation (i.e.
    * swapping selected and not-selected). */
-    const size_t n_partition = n_random_split;
+    const size_t n_partition = parameters.n_random_split;
 
   /* The output key is as per Tree::split_node (see comments for unordered); it
    * is drawn randomly from all available partitions that put at least one of
@@ -309,10 +315,10 @@ void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
         return key;
     };
 
-    tree_impl.best_decrease_by_partition(
-        split_key, node_key, data, sample_keys,
-        n_sample_node, n_partition, to_partition_key,
-        best_decrease, best_split_key, best_value
+    tree_impl.template best_decrease_by_partition<LOGRANK>(
+        split_key, node_key, data, sample_keys, n_sample_node, n_partition,
+        parameters.min_leaf_n_sample,
+        to_partition_key, best_decrease, best_split_key, best_value
     );
 
 }
@@ -321,11 +327,12 @@ void Tree<ImplT>::best_decrease_by_value_extratrees_unordered(
 template <typename ImplT>
 void Tree<ImplT>::best_decrease_by_value_smallq(
     const size_t split_key, const size_t node_key,
+    const TrainingParameters & parameters,
     const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_decrease, size_t & best_split_key, double & best_value
-) {
+) const {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
   /* All values of predictors that are present in this node are candidates for
@@ -342,19 +349,35 @@ void Tree<ImplT>::best_decrease_by_value_smallq(
    * values to split on - except if the candidate values are too far apart and
    * the numerical difference between the right-hand value and the mid-point is
    * zero (then we'll use the left-hand value). */
-    auto update_best_value = [&](size_t j){
+    auto update_best_value = [&](const size_t j){
         const double x0 = candidate_values[j];
         const double x1 = candidate_values[j + 1];
         best_value = (x0 + x1) / 2;
         if (best_value == x1) best_value = x0;
     };
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
+    prepare_candidate_loop_via_value(split_key, node_key, parameters.split_rule,
+                                     data, sample_keys);
 
-    tree_impl.best_decrease_by_real_value(
-        split_key, n_sample_node, n_candidate_value,
-        best_decrease, best_split_key, update_best_value
-    );
+    if (parameters.split_rule == LOGRANK) {
+        tree_impl.template best_decrease_by_real_value<LOGRANK>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    } else if (parameters.split_rule == BETA) {
+        tree_impl.template best_decrease_by_real_value<BETA>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    } else if (parameters.split_rule == HELLINGER) {
+        tree_impl.template best_decrease_by_real_value<HELLINGER>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    }
 
     finalise_candidate_loop();
 
@@ -364,44 +387,70 @@ void Tree<ImplT>::best_decrease_by_value_smallq(
 template <typename ImplT>
 void Tree<ImplT>::best_decrease_by_value_largeq(
     const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
+    const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_decrease, size_t & best_split_key, double & best_value
-) {
+) const {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
-
-    prepare_candidate_loop_via_index(split_key, node_key, data, sample_keys);
-
-  /* Break if pure or empty node. */
-    size_t test_n_candidate = 0;
-    for (const size_t & n : node_n_by_candidate) {
-        test_n_candidate += n > 0;
-        if (test_n_candidate == 2) break;
-    }
-    if (test_n_candidate != 2) return;
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
     const size_t n_candidate_value =
-        data->get_n_unique_predictor_value(split_key);
+        data->get_n_unique_value(split_key);
+
+    {
+        /* FIXME: There might be a better way to short-circuit this case; for
+         * now, tests with MNIST indicated this short-circuit reduced total time
+         * for this call from 22200 to 15900 (~40% faster) */
+        bool pure = true;
+        const size_t start_key = sample_keys[start_pos[node_key]];
+        const size_t start_value = data->rawget_unique_key(start_key, split_key);
+        for (size_t j = start_pos[node_key]; j != end_pos[node_key]; ++j) {
+            const size_t sample_key = sample_keys[j];
+            const size_t value = data->rawget_unique_key(sample_key, split_key);
+            if (value != start_value) {
+                pure = false;
+                break;
+            }
+        }
+        if (pure) return;
+    }
+
+    prepare_candidate_loop_via_index(split_key, node_key, parameters.split_rule,
+                                     data, sample_keys);
 
   /* Use mid-point. See comments in best_decrease_by_value_smallq */
-    auto update_best_value = [&](size_t j0){
+    auto update_best_value = [&](const size_t j0){
         size_t j1 = j0 + 1;
       /* find the next candidate that is present in the node */
         while (j1 != n_candidate_value && node_n_by_candidate[j1] == 0) ++j1;
       /* should check that j1 != n_candidate_value ... but this should never
        * happen. */
-        const double x0 = data->get_unique_predictor_value(split_key, j0);
-        const double x1 = data->get_unique_predictor_value(split_key, j1);
+        const double x0 = data->get_unique_value(split_key, j0);
+        const double x1 = data->get_unique_value(split_key, j1);
         best_value = (x0 + x1) / 2;
         if (best_value == x1) best_value = x0;
     };
 
-    tree_impl.best_decrease_by_real_value(
-        split_key, n_sample_node, n_candidate_value,
-        best_decrease, best_split_key, update_best_value
-    );
+    if (parameters.split_rule == LOGRANK) {
+        tree_impl.template best_decrease_by_real_value<LOGRANK>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    } else if (parameters.split_rule == BETA) {
+        tree_impl.template best_decrease_by_real_value<BETA>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    } else if (parameters.split_rule == HELLINGER) {
+        tree_impl.template best_decrease_by_real_value<HELLINGER>(
+            split_key, n_sample_node, n_candidate_value,
+            parameters.min_leaf_n_sample,
+            best_decrease, best_split_key, update_best_value
+        );
+    }
 
     finalise_candidate_loop();
 
@@ -411,12 +460,12 @@ void Tree<ImplT>::best_decrease_by_value_largeq(
 template <typename ImplT>
 void Tree<ImplT>::best_decrease_by_value_unordered(
     const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
+    const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_decrease, size_t & best_split_key, double & best_value
-) {
+) const {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
 
@@ -452,11 +501,25 @@ void Tree<ImplT>::best_decrease_by_value_unordered(
         return key;
     };
 
-    tree_impl.best_decrease_by_partition(
-        split_key, node_key, data, sample_keys,
-        n_sample_node, n_partition, to_partition_key,
-        best_decrease, best_split_key, best_value
-    );
+    if (parameters.split_rule == LOGRANK) {
+        tree_impl.template best_decrease_by_partition<LOGRANK>(
+            split_key, node_key, data, sample_keys, n_sample_node, n_partition,
+            parameters.min_leaf_n_sample,
+            to_partition_key, best_decrease, best_split_key, best_value
+        );
+    } else if (parameters.split_rule == BETA) {
+        tree_impl.template best_decrease_by_partition<BETA>(
+            split_key, node_key, data, sample_keys, n_sample_node, n_partition,
+            parameters.min_leaf_n_sample,
+            to_partition_key, best_decrease, best_split_key, best_value
+        );
+    } else if (parameters.split_rule == HELLINGER) {
+        tree_impl.template best_decrease_by_partition<HELLINGER>(
+            split_key, node_key, data, sample_keys, n_sample_node, n_partition,
+            parameters.min_leaf_n_sample,
+            to_partition_key, best_decrease, best_split_key, best_value
+        );
+    }
 
 }
 
@@ -464,12 +527,12 @@ void Tree<ImplT>::best_decrease_by_value_unordered(
 template <typename ImplT>
 double Tree<ImplT>::best_statistic_by_value(
     const size_t split_key, const size_t node_key,
-    const std::shared_ptr<const Data> data,
-    const key_vector & sample_keys,
+    const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data, const key_vector & sample_keys,
     double & best_statistic, size_t & best_split_key, double & best_value
-) {
+) const {
 
-    ImplT & tree_impl = *static_cast<ImplT *>(this);
+    const ImplT & tree_impl = *static_cast<const ImplT *>(this);
 
     const size_t n_sample_node = get_n_sample_node(node_key);
 
@@ -483,20 +546,22 @@ double Tree<ImplT>::best_statistic_by_value(
   /* Break if pure or empty node. */
     if (n_candidate_value < 2) return -INFINITY;
 
-    prepare_candidate_loop_via_value(split_key, node_key, data, sample_keys);
+    prepare_candidate_loop_via_value(split_key, node_key, parameters.split_rule,
+                                     data, sample_keys);
 
     /* best statistic and (split) value for this candidate */
     double this_statistic = -INFINITY, this_value = -INFINITY,
            this_p_value   = -INFINITY;
-    auto update_this_value = [&](size_t j){
+    auto update_this_value = [&](const size_t j){
         const double x0 = candidate_values[j];
         const double x1 = candidate_values[j + 1];
         this_value = (x0 + x1) / 2;
         if (this_value == x1) this_value = x0;
     };
     tree_impl.best_statistic_by_real_value(
-        n_sample_node, n_candidate_value, this_statistic, update_this_value,
-        this_p_value
+        n_sample_node, n_candidate_value,
+        parameters.min_leaf_n_sample, parameters.min_prop,
+        this_statistic, update_this_value, this_p_value
     );
 
     if (this_statistic > best_statistic) {
@@ -513,7 +578,7 @@ double Tree<ImplT>::best_statistic_by_value(
 
 
 template <typename ImplT>
-void Tree<ImplT>::finalise_candidate_loop() {
+void Tree<ImplT>::finalise_candidate_loop() const noexcept {
 
     if (save_memory) {
       /* NOTE: release of memory may be implementation dependent */
@@ -522,7 +587,6 @@ void Tree<ImplT>::finalise_candidate_loop() {
     }
 
 }
-
 
 
 } /* namespace literanger */

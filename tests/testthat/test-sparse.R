@@ -31,8 +31,8 @@ test_that("prediction same using sparse or non-sparse data", {
                              classification=TRUE)
     pred_class_sparse <- predict(rf_class_sparse, newdata=iris_sparse)$values
     pred_class_sparse <- factor(pred_class_sparse,
-                                levels=rf_class_df$response_values,
-                                labels=rf_class_df$response_levels)
+                                levels=seq_along(rf_class_df$response$levels),
+                                labels=rf_class_df$response$levels)
 
     expect_equal(pred_class_df, pred_class_sparse)
 

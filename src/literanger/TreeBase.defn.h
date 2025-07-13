@@ -25,6 +25,7 @@
 #include <stdexcept>
 
 /* cereal types */
+#include "cereal/types/memory.hpp"
 #include "cereal/types/utility.hpp"
 #include "cereal/types/vector.hpp"
 
@@ -36,86 +37,71 @@
 
 namespace literanger {
 
-inline TreeBase::TreeBase(const TreeParameters & parameters,
-                          const bool save_memory) :
-    n_predictor(parameters.n_predictor), is_ordered(parameters.is_ordered),
-    replace(parameters.replace), sample_fraction(parameters.sample_fraction),
-    n_try(parameters.n_try),
-    draw_always_predictor_keys(parameters.draw_always_predictor_keys),
-    draw_predictor_weights(parameters.draw_predictor_weights),
-    split_rule(parameters.split_rule),
-    min_metric_decrease(parameters.min_metric_decrease),
-    max_depth(parameters.max_depth),
-    min_split_n_sample(parameters.min_split_n_sample),
-    min_leaf_n_sample(parameters.min_leaf_n_sample),
-    n_random_split(parameters.n_random_split),
-    save_memory(save_memory)
+/* construction call definition(s) */
+
+template <typename T, typename... ArgsT>
+std::unique_ptr<TreeBase> make_tree(ArgsT &&... args) {
+    return std::unique_ptr<TreeBase>(new T(std::forward<ArgsT>(args)...));
+}
+
+
+inline TreeBase::TreeBase(
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered
+) :
+    save_memory(save_memory), n_predictor(n_predictor), is_ordered(is_ordered)
 { }
 
 
 inline TreeBase::TreeBase(
-    const TreeParameters & parameters,
-    const bool save_memory,
-    key_vector && split_keys,
-    dbl_vector && split_values,
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered,
+    key_vector && split_keys, dbl_vector && split_values,
     std::pair<key_vector,key_vector> && child_node_keys
 ) :
-    n_predictor(parameters.n_predictor), is_ordered(parameters.is_ordered),
-    replace(parameters.replace), sample_fraction(parameters.sample_fraction),
-    n_try(parameters.n_try),
-    draw_always_predictor_keys(parameters.draw_always_predictor_keys),
-    draw_predictor_weights(parameters.draw_predictor_weights),
-    split_rule(parameters.split_rule),
-    min_metric_decrease(parameters.min_metric_decrease),
-    max_depth(parameters.max_depth),
-    min_split_n_sample(parameters.min_split_n_sample),
-    min_leaf_n_sample(parameters.min_leaf_n_sample),
-    n_random_split(parameters.n_random_split),
-    save_memory(save_memory),
+    save_memory(save_memory), n_predictor(n_predictor), is_ordered(is_ordered),
     split_keys(std::move(split_keys)), split_values(std::move(split_values)),
     child_node_keys(std::move(child_node_keys)) {
-
 }
 
 
-inline TreeBase::operator TreeParameters() {
-    return TreeParameters(
-        n_predictor,
-        std::shared_ptr<std::vector<bool>>(new std::vector<bool>(*is_ordered)),
-        replace, sample_fraction, n_try,
-        draw_always_predictor_keys, draw_predictor_weights, split_rule,
-        min_metric_decrease, max_depth,
-        min_split_n_sample, min_leaf_n_sample, n_random_split
-    );
+inline TreeBase::TreeBase(
+    const bool save_memory, const size_t n_predictor,
+    const cbool_vector_ptr is_ordered, const TreeBase & tree
+) :
+    save_memory(save_memory), n_predictor(n_predictor), is_ordered(is_ordered),
+    split_keys(tree.split_keys), split_values(tree.split_values),
+    child_node_keys(tree.child_node_keys) {
+}
+
+
+inline const key_vector & TreeBase::get_split_keys() const noexcept {
+    return split_keys;
+}
+
+
+inline const dbl_vector & TreeBase::get_split_values() const noexcept {
+    return split_values;
+}
+
+
+inline const key_vector & TreeBase::get_left_children() const noexcept {
+    return left_children;
+}
+
+
+inline const key_vector & TreeBase::get_right_children() const noexcept {
+    return right_children;
 }
 
 
 inline void TreeBase::seed_gen(const size_t seed) { gen.seed(seed); }
 
 
-inline const key_vector & TreeBase::get_split_keys() const {
-    return split_keys;
-}
-
-
-inline const dbl_vector & TreeBase::get_split_values() const {
-    return split_values;
-}
-
-
-inline const key_vector & TreeBase::get_left_children() const {
-    return left_children;
-}
-
-
-inline const key_vector & TreeBase::get_right_children() const {
-    return right_children;
-}
-
-
 inline key_vector TreeBase::grow(
+    const TrainingParameters & parameters,
     const std::shared_ptr<const Data> data,
-    const dbl_vector_ptr case_weights,
+    const cdbl_vector_ptr case_weights,
     const bool compute_oob_error
 ) {
 
@@ -127,14 +113,18 @@ inline key_vector TreeBase::grow(
     if (split_keys.size() != 0)
         throw std::runtime_error("Expected to start with empty tree.");
 
+    if (parameters.n_try > n_predictor)
+        throw std::domain_error("'n_try' can not be larger than number of "
+            "predictors (columns).");
+
   /* Implementation-specific initialisation - usually for any data used by
    * the split_node implementation */
-    new_growth(data);
+    new_growth(parameters, data);
 
   /* Construct first node - will be modified by first call to split_node */
     push_back_empty_node();
 
-    const bool response_wise = sample_fraction->size() > 1;
+    const bool response_wise = parameters.sample_fraction->size() > 1;
     const bool weighted = !case_weights->empty();
     if (weighted && response_wise)
         throw std::invalid_argument("Cannot have both weighted and "
@@ -144,12 +134,18 @@ inline key_vector TreeBase::grow(
    * to be used for growing this tree; optionally also get the keys for the
    * out-of-bag data if we're computing OOB error */
     if (weighted) {
-        resample_weighted(n_sample, case_weights, compute_oob_error,
+        resample_weighted(n_sample, parameters.replace,
+                          parameters.sample_fraction, case_weights,
+                          compute_oob_error,
                           sample_keys, oob_keys);
     } else if (response_wise) {
-        resample_response_wise(data, compute_oob_error, sample_keys, oob_keys);
+        resample_response_wise(data, parameters.replace,
+                               parameters.sample_fraction, compute_oob_error,
+                               sample_keys, oob_keys);
     } else {
-        resample_unweighted(n_sample, compute_oob_error, sample_keys, oob_keys);
+        resample_unweighted(n_sample, parameters.replace,
+                            parameters.sample_fraction, compute_oob_error,
+                            sample_keys, oob_keys);
     }
 
   /* Now we iteratively split nodes */
@@ -159,7 +155,7 @@ inline key_vector TreeBase::grow(
 
     for (size_t n_open_node = 1, node_key = 0; n_open_node != 0; ++node_key) {
         const bool did_split = split_node(
-            node_key, depth, last_left_node_key, data, sample_keys
+            node_key, depth, last_left_node_key, parameters, data, sample_keys
         );
         if (!did_split) { --n_open_node; } else {
             ++n_open_node;
@@ -178,15 +174,35 @@ inline key_vector TreeBase::grow(
 }
 
 
-inline size_t TreeBase::get_n_sample_node(const size_t node_key) const {
+inline void TreeBase::transform_split_keys(
+    std::unordered_map<size_t,size_t> key_map
+) {
+    if (key_map.size() != n_predictor)
+        throw std::invalid_argument(
+            "Require a mapping for all existing predictor-keys"
+        );
+
+    for (size_t j = 0; j != n_predictor; ++j)
+        if (key_map.count(j) != 1 || key_map[j] >= n_predictor)
+            throw std::domain_error("Invalid predictor-key value in mapping");
+
+  /* Update the keys used to identify which predictor to split on */
+    for (auto & key : split_keys)
+        key = key_map[key];
+
+}
+
+
+inline size_t TreeBase::get_n_sample_node(
+    const size_t node_key
+) const noexcept {
     return end_pos[node_key] - start_pos[node_key];
 }
 
 
 template <typename archive_type>
 void TreeBase::serialize(archive_type & archive) {
-    TreeParameters tree_parameters = *this;
-    archive(tree_parameters, save_memory,
+    archive(save_memory, n_predictor, is_ordered,
             split_keys, split_values, child_node_keys);
 }
 
@@ -205,10 +221,11 @@ inline void TreeBase::push_back_empty_node() {
 }
 
 
-inline void TreeBase::resample_unweighted(const size_t n_sample,
-                                          const bool get_oob_keys,
-                                          key_vector & sample_keys,
-                                          key_vector & oob_keys) {
+inline void TreeBase::resample_unweighted(
+    const size_t n_sample, const bool replace,
+    const cdbl_vector_ptr sample_fraction, const bool get_oob_keys,
+    key_vector & sample_keys, key_vector & oob_keys
+) {
 
     const size_t n_sample_inbag = (size_t)(n_sample * (*sample_fraction)[0]);
 
@@ -250,11 +267,12 @@ inline void TreeBase::resample_unweighted(const size_t n_sample,
 }
 
 
-inline void TreeBase::resample_weighted(const size_t n_sample,
-                                        const dbl_vector_ptr weights,
-                                        const bool get_oob_keys,
-                                        key_vector & sample_keys,
-                                        key_vector & oob_keys) {
+inline void TreeBase::resample_weighted(
+    const size_t n_sample, const bool replace,
+    const cdbl_vector_ptr sample_fraction, const cdbl_vector_ptr weights,
+    const bool get_oob_keys,
+    key_vector & sample_keys, key_vector & oob_keys
+) {
 
     if (weights->size() != n_sample)
         throw std::invalid_argument("Case weights must have the same length "
@@ -290,10 +308,9 @@ inline void TreeBase::resample_weighted(const size_t n_sample,
 
 
 inline void TreeBase::resample_response_wise(
-    const std::shared_ptr<const Data> data,
-    const bool get_oob_keys,
-    key_vector & sample_keys,
-    key_vector & oob_keys
+    const std::shared_ptr<const Data> data, const bool replace,
+    const cdbl_vector_ptr sample_fraction, const bool get_oob_keys,
+    key_vector & sample_keys, key_vector & oob_keys
 ) {
 
     const size_t n_sample = data->get_n_row();
@@ -303,7 +320,8 @@ inline void TreeBase::resample_response_wise(
     if (get_oob_keys) oob_keys.clear();
 
   /* Implementation-specific response-wise bootstrap/draw */
-    resample_response_wise_impl(data, sample_keys, inbag_counts);
+    resample_response_wise_impl(data, replace, sample_fraction,
+                                sample_keys, inbag_counts);
 
     const size_t n_sample_inbag = sample_keys.size();
 
@@ -324,32 +342,35 @@ inline void TreeBase::resample_response_wise(
 
 
 inline void TreeBase::resample_response_wise_impl(
-    const std::shared_ptr<const Data> data,
-    key_vector & sample_keys,
-    count_vector & inbag_counts
+    const std::shared_ptr<const Data> data, const bool replace,
+    const cdbl_vector_ptr sample_fraction,
+    key_vector & sample_keys, count_vector & inbag_counts
 ) {
     throw std::invalid_argument("Response-wise sampling not supported for this "
         "tree type.");
 }
 
 
-inline bool TreeBase::split_node(const size_t node_key,
-                                 const size_t last_left_node_key,
-                                 const size_t depth,
-                                 const std::shared_ptr<const Data> data,
-                                 key_vector & sample_keys) {
+inline bool TreeBase::split_node(
+    const size_t node_key, const size_t last_left_node_key, const size_t depth,
+    const TrainingParameters & parameters,
+    const std::shared_ptr<const Data> data,
+    key_vector & sample_keys
+) {
 
     const size_t n_sample_node = get_n_sample_node(node_key);
 
-    if (max_depth && depth > max_depth)
+    if (parameters.max_depth && depth > parameters.max_depth)
         throw std::runtime_error("Cannot split a node that is already at "
             "maximum depth of tree.");
 
     { /* Test if we have reached a terminal node */
-        const bool too_deep = node_key >= last_left_node_key && max_depth &&
-            depth == max_depth;
+        const bool too_deep = (
+            node_key >= last_left_node_key && parameters.max_depth &&
+            depth == parameters.max_depth
+        );
 
-        if (n_sample_node < min_split_n_sample || too_deep) {
+        if (n_sample_node <= parameters.min_split_n_sample || too_deep) {
             add_terminal_node(node_key, data, sample_keys);
             return false;
         }
@@ -373,11 +394,10 @@ inline bool TreeBase::split_node(const size_t node_key,
 
     { /* Draw a random subset of variables to possibly split at - then find best
        * split (implementation-specific) */
-        key_vector split_candidate_keys = draw_candidates();
+        key_vector split_candidate_keys = draw_candidates(parameters);
         const bool split_found = push_best_split(
-            node_key, data, sample_keys, split_candidate_keys
+            node_key, parameters, data, sample_keys, split_candidate_keys
         );
-        /* node_key, split_candidate_keys, n_node_sample?? */
         if (!split_found) {
             add_terminal_node(node_key, data, sample_keys);
             return false;
@@ -410,10 +430,8 @@ inline bool TreeBase::split_node(const size_t node_key,
         for (size_t j = start_pos[node_key]; j < start_pos[right_key]; ) {
             const size_t key = sample_keys[j];
             if (data->get_x(key, split_key) <= split_value) {
-              /* */
                 ++j;
             } else {
-                // If going to right, move to right end
                 --start_pos[right_key];
                 std::swap(sample_keys[j], sample_keys[start_pos[right_key]]);
             }
@@ -426,7 +444,9 @@ inline bool TreeBase::split_node(const size_t node_key,
        *
        * NOTE: Casting of double to ull - unsafe? */
         size_t j = start_pos[node_key];
-        const ull_bitenc partition_key = *((unsigned long long *)(&split_value));
+        const ull_bitenc partition_key = *(
+            (unsigned long long *)(&split_value)
+        );
         while (j < start_pos[right_key]) {
             const size_t key = sample_keys[j];
             const size_t obs_bit = std::floor(data->get_x(key, split_key) - 1);
@@ -448,23 +468,29 @@ inline bool TreeBase::split_node(const size_t node_key,
 }
 
 
-inline key_vector TreeBase::draw_candidates() {
+inline key_vector TreeBase::draw_candidates(
+    const TrainingParameters & parameters
+) {
 
     key_vector result;
     count_vector inbag_counts = count_vector(n_predictor, 0);
 
-    if (draw_predictor_weights->empty()) {
-        draw_no_replace(n_try, n_predictor, *draw_always_predictor_keys,
+    if (parameters.draw_predictor_weights->empty()) {
+        draw_no_replace(parameters.n_try, n_predictor,
+                        *parameters.draw_always_predictor_keys,
                         gen, result,
                         inbag_counts);
     } else {
-        draw_no_replace_weighted(n_try, *draw_predictor_weights, gen,
+        draw_no_replace_weighted(parameters.n_try,
+                                 *parameters.draw_predictor_weights, gen,
                                  result, inbag_counts);
     }
 
-    result.reserve(result.size() + draw_always_predictor_keys->size());
-    std::copy(draw_always_predictor_keys->cbegin(),
-              draw_always_predictor_keys->cend(),
+    result.reserve(
+        result.size() + parameters.draw_always_predictor_keys->size()
+    );
+    std::copy(parameters.draw_always_predictor_keys->cbegin(),
+              parameters.draw_always_predictor_keys->cend(),
               std::back_inserter(result));
 
     return result;
@@ -472,7 +498,9 @@ inline key_vector TreeBase::draw_candidates() {
 }
 
 
-inline void TreeBase::finalise_growth() { /* Default does nothing */ }
+inline void TreeBase::finalise_growth() const noexcept {
+    /* Default does nothing */
+}
 
 
 inline void TreeBase::push_back_empty_node_impl() { /* Default does nothing */ }

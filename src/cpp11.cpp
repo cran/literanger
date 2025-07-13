@@ -19,6 +19,13 @@ extern "C" SEXP _literanger_cpp11_deserialize(SEXP object, SEXP verbose) {
     return cpp11::as_sexp(cpp11_deserialize(cpp11::as_cpp<cpp11::decay_t<cpp11::raws>>(object), cpp11::as_cpp<cpp11::decay_t<const bool>>(verbose)));
   END_CPP11
 }
+// cpp11_merge.cpp
+cpp11::list cpp11_merge(cpp11::list x, cpp11::list y, cpp11::strings x_predictors, cpp11::strings y_predictors, const bool save_memory, const bool verbose);
+extern "C" SEXP _literanger_cpp11_merge(SEXP x, SEXP y, SEXP x_predictors, SEXP y_predictors, SEXP save_memory, SEXP verbose) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(cpp11_merge(cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(x), cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(y), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(x_predictors), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(y_predictors), cpp11::as_cpp<cpp11::decay_t<const bool>>(save_memory), cpp11::as_cpp<cpp11::decay_t<const bool>>(verbose)));
+  END_CPP11
+}
 // cpp11_predict.cpp
 cpp11::list cpp11_predict(cpp11::list object, cpp11::doubles_matrix<> x, cpp11::sexp sparse_x, std::string prediction_type, const size_t seed, const size_t n_thread, const bool verbose);
 extern "C" SEXP _literanger_cpp11_predict(SEXP object, SEXP x, SEXP sparse_x, SEXP prediction_type, SEXP seed, SEXP n_thread, SEXP verbose) {
@@ -37,6 +44,7 @@ extern "C" SEXP _literanger_cpp11_train(SEXP x, SEXP y, SEXP sparse_x, SEXP case
 extern "C" {
 static const R_CallMethodDef CallEntries[] = {
     {"_literanger_cpp11_deserialize", (DL_FUNC) &_literanger_cpp11_deserialize,  2},
+    {"_literanger_cpp11_merge",       (DL_FUNC) &_literanger_cpp11_merge,        6},
     {"_literanger_cpp11_predict",     (DL_FUNC) &_literanger_cpp11_predict,      7},
     {"_literanger_cpp11_serialize",   (DL_FUNC) &_literanger_cpp11_serialize,    2},
     {"_literanger_cpp11_train",       (DL_FUNC) &_literanger_cpp11_train,       25},

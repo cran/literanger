@@ -1,5 +1,19 @@
 # Changelog - literanger
 
+## [0.2.0](https://gitlab.com/stephematician/literanger/-/tags/v0.2.0) - 2025-07-
+
+### Changed
+
+-   **Breaking** extensive refactor to literanger object in R; any objects
+    serialized with versions < 0.2.0 cannot be deserialized with new release.
+-   Training speed improved via inlining and short-circuits; mileage may vary
+    but 10-15% faster is expected.
+
+### Added
+
+-   A merge() function to merge trained forests.
+
+
 ## [0.1.1](https://gitlab.com/stephematician/literanger/-/tags/v0.1.1) - 2024-09-13
 
 Performance improved. R interface and C++ core have been separated.

@@ -47,43 +47,42 @@ std::unique_ptr<ForestBase> make_forest(ArgsT &&... args) {
 }
 
 
-inline ForestBase::ForestBase(
-    const TreeType tree_type,
-    const std::vector<TreeParameters> tree_parameters,
-    const bool save_memory
-) :
-    tree_type(tree_type),
-    n_tree(tree_parameters.size()),
-    tree_parameters(tree_parameters),
-    save_memory(save_memory)
-{
-  /* final checks */
-    if (this->n_tree == 0)
-        throw std::domain_error("'n_tree' must be positive.");
-}
+inline ForestBase::ForestBase(const bool save_memory) :
+    save_memory(save_memory), n_predictor(0), is_ordered(nullptr)
+{ }
 
 
 inline ForestBase::ForestBase(
-    const TreeType tree_type,
-    const std::vector<TreeParameters> tree_parameters,
-    const bool save_memory,
+    const bool save_memory, const size_t n_predictor,
+    bool_vector_ptr is_ordered,
     std::vector<std::unique_ptr<TreeBase>> && trees
 ) :
-    tree_type(tree_type),
-    n_tree(tree_parameters.size()),
-    tree_parameters(tree_parameters),
-    save_memory(save_memory),
+    save_memory(save_memory), n_predictor(n_predictor), is_ordered(is_ordered),
     trees(std::move(trees))
-{
-  /* final checks */
-    if (this->n_tree == 0)
-        throw std::domain_error("'n_tree' must be positive.");
-    if (this->n_tree != this->trees.size())
-        throw std::runtime_error("'n_tree' does not match 'trees.size()'");
-}
+{ }
 
 
 /* member definitions (non-interface) */
+
+inline size_t ForestBase::size() const noexcept { return trees.size(); }
+
+
+inline size_t ForestBase::get_n_predictor() const noexcept {
+    return n_predictor;
+}
+
+
+inline ForestBase::cbool_vector_ptr
+ForestBase::get_is_ordered() const noexcept {
+    return is_ordered;
+}
+
+
+inline const std::vector<std::unique_ptr<TreeBase>> &
+ForestBase::peek_trees() const noexcept {
+    return trees;
+}
+
 
 inline void ForestBase::seed_gen(const size_t seed) {
     if (seed == 0) {
@@ -95,15 +94,9 @@ inline void ForestBase::seed_gen(const size_t seed) {
 }
 
 
-inline const std::vector<TreeParameters> &
-ForestBase::get_tree_parameters() const {
-    return tree_parameters;
-}
-
-
 template <typename archive_type>
 void ForestBase::serialize(archive_type & archive) {
-    archive(tree_type, tree_parameters, save_memory, trees);
+    archive(save_memory, n_predictor, is_ordered, trees);
 }
 
 

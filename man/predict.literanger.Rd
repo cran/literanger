@@ -24,9 +24,8 @@
 \item{prediction_type}{Name of the prediction algorithm; "bagged" is the
 most-frequent value among in-bag samples for classification, or the mean of
 in-bag responses for regression; "inbag" predicts by drawing one in-bag
-response from a random tree for each row; "nodes" (currently unsupported)
-returns the node keys (ids) of the terminal node from every tree for each
-row.}
+response from a random tree for each row; "nodes" returns the node keys
+(ids) of the terminal node from every tree for each row.}
 
 \item{seed}{Random seed, an integer between 1 and \code{.Machine$integer.max}.
 Default generates the seed from \code{R}, set to \code{0} to ignore the \code{R} seed and
@@ -43,9 +42,12 @@ the number of cores.}
 Object of class \code{literanger_prediction} with elements:
 \describe{
 \item{\code{values}}{Predicted (drawn) classes/value for classification and
-regression.}
+regression (when prediction type is not \code{nodes}).}
 \item{\code{tree_type}}{Number of trees.}
 \item{\code{seed}}{The seed supplied to the C++ library.}
+\item{\code{nodes}}{When prediction type is \code{nodes}: a matrix of terminal node
+identifiers, with each row being a prediction and each column being a
+tree.}
 }
 }
 \description{
@@ -87,10 +89,10 @@ features:
 train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 iris_train <- iris[ train_idx, ]
 iris_test  <- iris[-train_idx, ]
-rf_iris <- train(data=iris_train, response_name="Species")
-pred_iris_bagged <- predict(rf_iris, newdata=iris_test,
+lr_iris <- train(data=iris_train, response_name="Species")
+pred_iris_bagged <- predict(lr_iris, newdata=iris_test,
                             prediction_type="bagged")
-pred_iris_inbag  <- predict(rf_iris, newdata=iris_test,
+pred_iris_inbag  <- predict(lr_iris, newdata=iris_test,
                             prediction_type="inbag")
 # compare bagged vs actual test values
 table(iris_test$Species, pred_iris_bagged$values)

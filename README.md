@@ -1,5 +1,5 @@
-literanger: A fast implementation of random forests for multiple imputation
-===========================================================================
+literanger: Fast serializable random forests for multiple imputation
+====================================================================
 
 [![R CMD check status](https://gitlab.com/stephematician/literanger/badges/main/pipeline.svg?job=check_r_package-job-bash&key_text=R+CMD+Check&key_width=90)](https://gitlab.com/stephematician/literanger/-/commits/main)
 [![coverage report](https://gitlab.com/stephematician/literanger/badges/main/coverage.svg)](https://gitlab.com/stephematician/literanger/-/commits/main)
@@ -66,6 +66,16 @@ rf_iris_copy <- read_literanger("rf_iris.literanger")
 table(iris_test$Specis, predict(rf_iris_copy, newdata=iris_test)$values)
 ```
 
+_Experimental feature_: As of v0.2.0, forests can be merged, naively, by copying
+the trees from two forests to a new one:
+
+```r
+rf <- replicate(
+    2, train(data=iris, response_name="Sepal.Length"), simplify=FALSE
+)
+rf_merged <- merge(rf[[1]], rf[[2]])
+```
+
 
 ## Installation
 
@@ -117,7 +127,7 @@ Statistics & Data Analysis_, 72, pp. 92-104.
 [doi:10.1016/j.csda.2013.10.025](https://doi.org/10.1016/j.csda.2013.10.025).
 
 Grant, W. S., and Voorhies, R., 2017. _cereal - A C++11 library for
-serialization_. [https://uscilab.github.io/cereal/][cereal_url].
+serialization_. [https://uscilab.github.io/cereal][cereal_url].
 
 Van Buuren, S. 2007. Multiple imputation of discrete and continuous  data by
 fully conditional specification. _Statistical Methods in Medical Research_,

@@ -4,7 +4,7 @@
 \alias{write_literanger}
 \title{Serialize random forest}
 \usage{
-write_literanger(object, file, verbose = TRUE, ...)
+write_literanger(object, file, verbose = FALSE, ...)
 }
 \arguments{
 \item{object}{A trained random forest \code{literanger} object.}
@@ -31,11 +31,11 @@ with no requirement for the original training data.
 train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 iris_train <- iris[ train_idx, ]
 iris_test  <- iris[-train_idx, ]
-rf_iris <- train(data=iris_train, response_name="Species")
+lr_iris <- train(data=iris_train, response_name="Species")
 file <- tempfile()
-write_literanger(rf_iris, file)
-rf_copy <- read_literanger(file)
-pred_bagged <- predict(rf_copy, newdata=iris_test, prediction_type="bagged")
+write_literanger(lr_iris, file)
+lr_copy <- read_literanger(file)
+pred_bagged <- predict(lr_copy, newdata=iris_test, prediction_type="bagged")
 
 }
 \seealso{

@@ -15,8 +15,8 @@ test_that("trained forest has default number of trees", {
 })
 
 test_that("'predictor_names' does not include the response", {
-    expect_equal(setdiff(names(iris), rf_iris_df$predictor_names), "Species")
-    expect_equal(setdiff(names(iris), rf_iris_mat$predictor_names), "Species")
+    expect_equal(setdiff(names(iris), rf_iris_df$predictors$names), "Species")
+    expect_equal(setdiff(names(iris), rf_iris_mat$predictors$names), "Species")
 })
 
 test_that("out-of-bag error estimate is number", {
@@ -73,8 +73,8 @@ test_that("can train when a predictor is named 'none'", {
                       none=rbinom(100, 1, .5))
     rf_df <- train(data=dat, response_name="y")
     rf_mat <- train(data=data.matrix(dat), response_name="y")
-    expect_equal(rf_df$predictor_names, c("x", "none"))
-    expect_equal(rf_mat$predictor_names, c("x", "none"))
+    expect_equal(rf_df$predictors$names, c("x", "none"))
+    expect_equal(rf_mat$predictors$names, c("x", "none"))
 })
 
 test_that("get error when sample fraction is outside (0,1]", {
@@ -85,7 +85,7 @@ test_that("get error when sample fraction is outside (0,1]", {
 
 test_that("can use function as 'n_try' argument ", {
     rf <- train(data=iris, response_name="Species", n_try=function(n) n - 1)
-    expect_equal(3, rf$n_try)
+    expect_equal(3, rf$training$n_try)
 })
 
 test_that("get error when 'n_try' function has error", {

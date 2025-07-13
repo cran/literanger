@@ -126,31 +126,19 @@ the number of cores.}
 \value{
 Object of class \code{literanger} with elements:
 \describe{
-\item{\code{predictor_names}}{The names of the predictor variables in the
-model.}
-\item{\code{names_of_unordered}}{The names of predictors that are unordered.}
-\item{\code{tree_type}}{The type of tree in the forest.}
-\item{\code{n_tree}}{The number of trees that were trained.}
-\item{\code{n_try}}{The number of predictors drawn as candidates for each
-split.}
-\item{\code{split_rule}}{The name of the split metric used.}
-\item{\code{max_depth}}{The maximum allowed depth of a tree in the forest.}
-\item{\code{min_metric_decrease}}{The minimum decrease in the metric for an
-acceptable split (equal to negative @p alpha for maximally selected
-rank statistics, else zero).}
-\item{\code{min_split_n_sample}}{The minimum number of in-bag samples in a node
-prior to splitting.}
-\item{\code{min_leaf_n_sample}}{The minimum number of in-bag samples in a leaf
-node.}
-\item{\code{seed}}{The seed supplied to the C++ library.}
+\item{\code{tree_type}}{The type of tree in the forest, either classification
+or regression.}
+\item{\code{n_tree}}{The number of trees in the forest.}
+\item{\code{training}}{The parameters for training that were passed at the time
+the forest was trained.}
+\item{\code{predictors}}{A list with the names of the predictors, the names of
+the unordered predictors, and the levels of any factors.}
+\item{\code{response}}{The levels and type indicator (e.g. logical, factor, etc)
+of the response.}
 \item{\code{oob_error}}{The misclassification rate or the mean square error
 using out-of-bag samples.}
 \item{\code{cpp11_ptr}}{An external pointer to the trained forest. DO NOT
 MODIFY.}
-\item{\code{response_values}}{Classification only: the values of the response in
-the order they appear in the data.}
-\item{\code{response_levels}}{Classification only: the labels for the response
-in the order they appear in the data.}
 }
 }
 \description{
@@ -243,8 +231,8 @@ train(data=iris, response_name="Species")
 train_idx <- sample(nrow(iris), 2/3 * nrow(iris))
 iris_train <- iris[train_idx, ]
 iris_test <- iris[-train_idx, ]
-rg_iris <- train(data=iris_train, response_name="Species")
-pred_iris <- predict(rg_iris, newdata=iris_test)
+lr_iris <- train(data=iris_train, response_name="Species")
+pred_iris <- predict(lr_iris, newdata=iris_test)
 table(iris_test$Species, pred_iris$values)
 
 }
